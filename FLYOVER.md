@@ -1,5 +1,7 @@
 # Flyover #1 — SOMA, Denver
 
+*Prefer to watch? [The film version](flyover.mp4) (~3 min) — the words arrive on the voice, over the real live sites.*
+
 *The seed's promise: when other communities take root using this kit, their flyovers join this one. This is the first.*
 
 ---
