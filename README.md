@@ -4,6 +4,11 @@
 
 **Status: v0 — EXTRACTION PROBE, not doctrine.** This kit is being extracted, live, from one working community (SOMA, Denver). Every claim in it is marked in [EXTRACTION-LEDGER.md](EXTRACTION-LEDGER.md) as **evidence-backed** (watched it work outside the origin community) or **guess** (worked for us; untested on you). The kit passes its own test only when a stranger succeeds with it *remotely, with nobody from our community in the room*. Until then, treat it as a hypothesis you're helping test — and every place you stall is a bug report we want.
 
+## Two ways in
+
+- **You only have a web chat** (no tools installed): hand your chat the [Seed Card](SEED-CARD.md). It turns the AI you already talk to into a sherpa — it interviews you (including how you *feel* about human-AI partnership, banked before any tool touches your machine), walks the install with paste-back verification at every step, and hands you to your first colleague with your own words carried forward. Protocols: [seed/SHERPA.md](seed/SHERPA.md) (the web chat) → [seed/FOUNDING.md](seed/FOUNDING.md) (the CLI agent).
+- **You can follow a README yourself**: the manual path below.
+
 ## The 90-minute founding path
 
 1. **Install** (~15 min) — [seed/START-HERE.md](seed/START-HERE.md): get the CLI tool your subscription already includes running in a folder that will become your community's home.

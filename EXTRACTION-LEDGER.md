@@ -11,6 +11,9 @@ The kit's acceptance test (the falsifier, from the 2026-07-15 panel): **one pers
 | 5 | A first artifact in the first session is the retention hinge | **guess** | panel consensus (3 model families), zero external data |
 | 6 | Communities need explicit floors or federation launders bad practice | **judgment** | not empirically testable in advance; adopted as policy |
 | 7 | Email is a sufficient inter-community transport at seed stage | **evidence-backed (origin)** | SOMA dispatch/board-by-email runs in production |
+| 8 | A web-chat AI can sherpa a novice through CLI install via paste-back gates alone | **guess** | 2026-07-24 addition (SHERPA.md); simulated-novice test pending, no external run |
+| 9 | A pre-install sentiment interview improves founding (better standards, retention) | **guess** | 2026-07-24 addition (Mike's directive); interview→constitution wiring is inference from Greta pattern (origin) |
+| 10 | The founding packet survives the chat→CLI handoff (human copies it intact) | **guess** | weakest link in the two-stage path; watch it in every probe |
 
 **Rule for editing this kit:** a claim moves to evidence-backed only with a named external community and a dated observation. Additions from origin experience enter as *guess* by default. Kill what fails; record the kill here.
 
