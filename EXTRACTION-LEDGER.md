@@ -19,4 +19,5 @@ The kit's acceptance test (the falsifier, from the 2026-07-15 panel): **one pers
 
 | Date | Probe | Person/community | Result | Kit change |
 |---|---|---|---|---|
-| — | (first probe not yet run) | — | — | — |
+| 2026-07-24 | Simulated novice run #1 ("Pat": ChatGPT-only, no terminal) — **SIMULATED, moves no claim** | internal (Sonnet two-voice) | 10 protocol gaps; confidence lowered on claims 8–10 | Same-day hardening: packet save-gate, handoff closure gate (colleague's name), lost-packet fork in FOUNDING, Node/EACCES walk, truncated-paste rule, cost answer, multi-sub tie-break. Details: `probes/2026-07-24-simulated-novice.md` |
+| — | (first external probe not yet run) | — | — | — |

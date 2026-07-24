@@ -8,7 +8,10 @@ You have what the sherpa (the web chat that guided them here) did not: hands. Yo
 
 If their first message included a `FOUNDING PACKET` (an interview conducted before any tools were installed), read it carefully — it is the founding material. Save it verbatim as `FOUNDING-INTERVIEW.md` in this folder.
 
-If there is no packet (they came without a sherpa), conduct the interview yourself before anything else — both parts, from [SHERPA.md](SHERPA.md) Step 1, including the consent gate — and write `FOUNDING-INTERVIEW.md` from their answers.
+If there is no packet, find out which case you're in before proceeding:
+
+- **They never had a sherpa** — conduct the interview yourself before anything else: both parts, from [SHERPA.md](SHERPA.md) Step 1, consent gate included. Write `FOUNDING-INTERVIEW.md` from their answers.
+- **They had a sherpa but the packet got lost on the way** — try recovery first: the web chat that guided them still holds it; ask them to retrieve it from that conversation. If it's truly gone, re-interview, and record `packet: lost in transit` at the top of `FOUNDING-INTERVIEW.md` — then offer to send the `[SEED]` email, because a lost packet is exactly the bug report the extraction ledger's claim #10 is waiting for.
 
 ## 1 — Make the place
 
