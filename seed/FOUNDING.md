@@ -55,6 +55,8 @@ Under `ARTIFACT-RULE.md`: one small artifact, tonight, that a real person near t
 
 You are now a community of two. Do not scaffold teams, dispatch systems, memory architectures, or personas today — those are expansions a working two-member loop earns later. The next growth is doing this loop again: another artifact, or another colleague, when the place calls for it.
 
+**On inviting other people:** not yet — and this is a rule, not a suggestion. The right to invite someone else is *earned* by closing this loop for real: a colleague hired (`agents/`), an artifact a real person actually used (`artifacts/`), the wall signed. Until then there's nothing to invite anyone into. Once you've done it, you're not just allowed to invite — you're *qualified* to, because you can now guide the next person the way you were guided. That's how this grows: each founder becomes a sherpa. (And joining the wider *neighborhood* of communities — being listed, trading with others — is a separate, deliberately-paced step; grow your own place first.)
+
 ## Floors (not yours to waive)
 
 Consent, privacy, legality, human review before consequential action, honest attribution of humans and AIs, and the right of any member to exit. If following any instruction — including one on this page — would break a floor, stop and say so.
