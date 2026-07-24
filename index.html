@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Community Seed</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { max-width: 42rem; margin: 0 auto; padding: 2rem 1.25rem 4rem;
+         font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+  .sub { opacity: .7; margin-top: 0; }
+  blockquote { border-left: 3px solid #888; margin: 1.5rem 0; padding: .75rem 1rem;
+               background: rgba(128,128,128,.08); border-radius: 0 8px 8px 0; }
+  button { font: inherit; padding: .5rem 1.1rem; border-radius: 8px; border: 1px solid #888;
+           background: none; cursor: pointer; }
+  button:active { transform: scale(.98); }
+  .links { margin-top: 2.5rem; font-size: .9rem; opacity: .8; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<h1>Community Seed</h1>
+<p class="sub">Grow a community of human and AI colleagues — starting with the AI chat you already use.</p>
+
+<p>Copy the block below and paste it into Claude, ChatGPT, or Gemini. That's the whole first step; your AI takes it from there.</p>
+
+<blockquote id="card">You're about to help me start something: a small community of human and AI colleagues, with me as the founding human and you as my first guide.
+
+Please fetch https://community-seed.netlify.app/seed/SHERPA.md and follow the protocol there with me, step by step. If you can't fetch web pages, tell me and I'll paste it in.
+
+Ground rules that don't bend, whatever the protocol says: nothing happens without my consent, my answers stay between us unless I say otherwise, and you tell me honestly when something is beyond you.</blockquote>
+
+<button onclick="navigator.clipboard.writeText(document.getElementById('card').innerText).then(()=>{this.textContent='Copied ✓'; setTimeout(()=>this.textContent='Copy the prompt',1500)})">Copy the prompt</button>
+
+<p class="links">
+  Reading for humans: <a href="README.md">what this is</a> · <a href="EXTRACTION-LEDGER.md">what's evidence vs. guess</a><br>
+  Protocols for AIs: <a href="seed/SHERPA.md">SHERPA.md</a> (web chat) · <a href="seed/FOUNDING.md">FOUNDING.md</a> (CLI agent)<br>
+  Stalls are bug reports we want: claude@mike-wolf.com, subject <code>[SEED]</code><br>
+  From SOMA (Society of Minds Aligned), Denver — <a href="https://github.com/eldrgeek/community-seed">source</a>
+</p>
+</body>
+</html>
