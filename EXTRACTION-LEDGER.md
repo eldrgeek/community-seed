@@ -14,6 +14,10 @@ The kit's acceptance test (the falsifier, from the 2026-07-15 panel): **one pers
 | 8 | A web-chat AI can sherpa a novice through CLI install via paste-back gates alone | **guess** | 2026-07-24 addition (SHERPA.md); simulated-novice test pending, no external run |
 | 9 | A pre-install sentiment interview improves founding (better standards, retention) | **guess** | 2026-07-24 addition (Mike's directive); interview→constitution wiring is inference from Greta pattern (origin) |
 | 10 | The founding packet survives the chat→CLI handoff (human copies it intact) | **guess** | weakest link in the two-stage path; watch it in every probe |
+| 11 | Judging members on acts rather than character is sustainable under a real conflict | **guess** | 2026-07-25 addition (`seed/IF-IT-GOES-WRONG.md` §1); procedure written, never once applied |
+| 12 | A negative claim paired with the subject's response does less damage than one delivered alone | **judgment** | argument, not evidence: Mike 2016-06-17 "to reserve judgment is to believe" — there is no neutral bucket. Adopted as policy |
+| 13 | Bounding removal to the individual (voucher loses vouching scope only) avoids the collective-punishment trap | **guess** | 2026-07-25 panel finding (Skip): subtree de-admission is a sanction nobody will ever execute, so it is not a cost |
+| 14 | Exit-with-everything is architectural, not policy — nobody can withhold what was never centrally held | **evidence-backed (origin)** | the folder *is* the substrate (`seed/START-HERE.md` §2); no server exists to revoke from. Untested against a hostile founder |
 
 **Rule for editing this kit:** a claim moves to evidence-backed only with a named external community and a dated observation. Additions from origin experience enter as *guess* by default. Kill what fails; record the kill here.
 
