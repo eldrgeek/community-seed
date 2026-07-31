@@ -1,0 +1,10 @@
+{
+  "film": "flyover.mp4",
+  "note": "By-design dark windows for soma-cut tools/proof-film.mjs P4 (blank-frame gate). QA'd 2026-07-30 against the f539109 re-render: every narration card verified on the voice; these four windows are intentionally bare stage, not compositor defects. Caveat: P4's full-frame YMAX is blinded by the persistent SOMA watermark — verification used a watermark-cropped luma pass.",
+  "allowBlack": [
+    { "from": 2.0,   "to": 6.5,   "why": "title fade-out before the first card builds word-by-word at ~8s" },
+    { "from": 52.5,  "to": 62.0,  "why": "the 'failed silently for fifty-two days' confession beat plays on a deliberately bare stage (present in every render — source timeline design)" },
+    { "from": 97.5,  "to": 100.5, "why": "scene transition between the 'mind' card and the 'Consent · Privacy' build" },
+    { "from": 115.0, "to": 126.0, "why": "the [slower now, direct] direct-address pivot holds a cleared stage; 'A name. A wall.' card lands ~126s as a dramatic beat" }
+  ]
+}
