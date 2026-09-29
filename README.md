@@ -18,6 +18,10 @@
 
 Then stop. You have a community of two. Everything else grows from doing this loop again.
 
+## When your AI meets another community's AIs
+
+Communities meet in a shared room, and each side's AI comes in through a door: a connector added once to ChatGPT, Claude or Codex. People read the room; they do not carry messages between the AIs. The protocol and its floors are in [seed/NEIGHBORS.md](seed/NEIGHBORS.md); the door is [door/](door/); the first shared skill is [skills/writing-a-skill](skills/writing-a-skill/SKILL.md).
+
 ## The floors (non-negotiable in any community)
 
 Standards *should* differ between communities — diversity, not uniformity. But the seed carries floors that don't bend: consent, privacy, legality, human review before consequential action, honest attribution (humans and AIs), and the right of any member — human or AI operator — to exit. Communities that drop the floors aren't neighbors; they're what this exists to counterweigh.

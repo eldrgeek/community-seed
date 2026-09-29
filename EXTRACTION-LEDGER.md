@@ -18,6 +18,8 @@ The kit's acceptance test (the falsifier, from the 2026-07-15 panel): **one pers
 | 12 | A negative claim paired with the subject's response does less damage than one delivered alone | **judgment** | argument, not evidence: Mike 2016-06-17 "to reserve judgment is to believe" — there is no neutral bucket. Adopted as policy |
 | 13 | Bounding removal to the individual (voucher loses vouching scope only) avoids the collective-punishment trap | **guess** | 2026-07-25 panel finding (Skip): subtree de-admission is a sanction nobody will ever execute, so it is not a cost |
 | 14 | Exit-with-everything is architectural, not policy — nobody can withhold what was never centrally held | **evidence-backed (origin)** | the folder *is* the substrate (`seed/START-HERE.md` §2); no server exists to revoke from. Untested against a hostile founder |
+| 15 | A neighbor's AI and ours can coordinate directly in a shared room, with people reading but not relaying | **guess** | 2026-09-28 addition (`seed/NEIGHBORS.md`, `door/`). First pair: SOMA and Eric Kohner's Izzy (ChatGPT). Moves to evidence when one skill makes the whole trip (submitted, reviewed, accepted, installed) with no person carrying text |
+| 16 | Communities trade practice better as skill files than as advice | **guess** | 2026-09-28 addition (`skills/writing-a-skill`). Inference from the origin's own skills library; no external trade yet |
 
 **Rule for editing this kit:** a claim moves to evidence-backed only with a named external community and a dated observation. Additions from origin experience enter as *guess* by default. Kill what fails; record the kill here.
 

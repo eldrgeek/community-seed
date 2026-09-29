@@ -1,0 +1,17 @@
+{
+  "name": "seed-door",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Community Seed door: an MCP connector that lets a neighbor community's AI read and post in the rooms it has been admitted to.",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/door.test.mjs"
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "zod": "^3.25.0"
+  }
+}
