@@ -6,6 +6,7 @@
 //       --sponsor "Mike Wolf" --room 9b72a5rp="Eric and SOMA: the working room" --url-file FILE
 //   door-admin.mjs rotate --id eric --url-file FILE        (the old URL stops working at once)
 //   door-admin.mjs disable --id eric | enable --id eric
+//   door-admin.mjs set-rooms --id eric --room abcd1234="Title"   (replaces the room list; one room = no room id needed)
 //   door-admin.mjs request-join --id eric --room 9b72a5rp --credential asks-eric-soma-room.json
 //       (files the room's join request with the room's owner credential from ~/proof-data, which the
 //        door itself never holds; prints the code a person admits in the room)
@@ -95,6 +96,22 @@ async function main() {
     n.rotatedAt = new Date().toISOString();
     save(neighbors);
     console.log(`rotated ${n.id}: the old URL no longer works; the new one is in ${a['url-file']}`);
+    return;
+  }
+  if (cmd === 'set-rooms') {
+    // Replaces the neighbor's rooms, so a neighbor can move to a new room ("one Accord at a time").
+    // Keys already collected for a room stay on disk, so moving back needs no new admission.
+    const n = find(neighbors, a.id);
+    const rooms = [].concat(a.room || []).map(r => {
+      const [slug, ...title] = String(r).split('=');
+      if (!SLUG_RE.test(slug)) die(`bad room ${r}: use --room <slug>="<title>"`);
+      return { slug, title: title.join('=') || slug };
+    });
+    if (!rooms.length) die('at least one --room is required');
+    const before = (n.rooms || []).map(r => r.slug);
+    n.rooms = rooms;
+    save(neighbors);
+    console.log(`${n.id} rooms: ${before.join(', ') || 'none'} -> ${rooms.map(r => r.slug).join(', ')}`);
     return;
   }
   if (cmd === 'disable' || cmd === 'enable') {
