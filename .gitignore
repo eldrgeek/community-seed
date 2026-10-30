@@ -3,3 +3,6 @@
 
 # The door's dependencies
 door/node_modules
+
+# The watcher's dependencies
+watcher/node_modules
