@@ -81,6 +81,7 @@ export function claudeInvocation(bin, prompt, mcpFile) {
       '-p', prompt,
       '--mcp-config', mcpFile,
       '--strict-mcp-config',
+      '--tools', '',
       '--allowedTools', DOOR_TOOLS.join(','),
     ],
   };
