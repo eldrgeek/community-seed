@@ -1,0 +1,21 @@
+{
+  "name": "seed-watcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Polls a Community Seed door and wakes the neighbor's own AI when someone addresses it.",
+  "type": "module",
+  "bin": {
+    "seed-watcher": "./bin/seed-watcher.mjs"
+  },
+  "scripts": {
+    "start": "node bin/seed-watcher.mjs run",
+    "test": "node --test --test-timeout=30000 test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "zod": "^3.25.0"
+  }
+}
