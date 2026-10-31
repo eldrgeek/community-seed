@@ -54,8 +54,8 @@ test('a signed sample guide copies only on click and advances on doneWhen in rea
   const target = targets.targetInfos.find(item => item.type === 'page' && item.url.startsWith(origin));
   const { sessionId } = await call('Target.attachToTarget', { targetId:target.targetId, flatten:true });
   await call('Runtime.enable', {}, sessionId);
-  await call('Runtime.evaluate', { expression:`globalThis.__messages=[];globalThis.__copied='';globalThis.chrome={runtime:{onMessage:{addListener(fn){globalThis.__guideListener=fn}},sendMessage(msg){globalThis.__messages.push(msg);return Promise.resolve({ok:true})}}};Object.defineProperty(navigator,'clipboard',{value:{writeText(value){globalThis.__copied=value;return Promise.resolve()}}});` }, sessionId);
-  const core = (await readFile(resolve(import.meta.dirname, '../src/guide-core.js'), 'utf8')).replaceAll('export ', '') + '\nglobalThis.SOMAGuideCore={assertStepSite};';
+  await call('Runtime.evaluate', { expression:`globalThis.__messages=[];globalThis.__copied='';globalThis.chrome={runtime:{getManifest(){return{version:'test'}},onMessage:{addListener(fn){globalThis.__guideListener=fn}},sendMessage(msg){globalThis.__messages.push(msg);return Promise.resolve({ok:true})}}};Object.defineProperty(navigator,'clipboard',{value:{writeText(value){globalThis.__copied=value;return Promise.resolve()}}});` }, sessionId);
+  const core = (await readFile(resolve(import.meta.dirname, '../src/guide-core.js'), 'utf8')).replaceAll('export ', '') + '\nglobalThis.SOMAGuideCore={assertStepSite,pickTarget,checkSaved,buildFeedback,structureSnapshot};';
   await call('Runtime.evaluate', { expression:core }, sessionId);
   const runner = await readFile(resolve(import.meta.dirname, '../src/runner.js'), 'utf8');
   await call('Runtime.evaluate', { expression:runner }, sessionId);
