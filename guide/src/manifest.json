@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "137",
+  "name": "SOMA Guide",
+  "version": "0.1.0",
+  "description": "Plain, signed, human-operated walkthroughs.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": ["https://vps.mike-wolf.com/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "SOMA Guide", "default_popup": "start.html" }
+}

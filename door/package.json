@@ -7,7 +7,7 @@
   "main": "server.mjs",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test test/door.test.mjs"
+    "test": "node --test test/*.test.mjs"
   },
   "engines": { "node": ">=22" },
   "dependencies": {
