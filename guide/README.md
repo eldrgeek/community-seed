@@ -16,6 +16,6 @@ Keep the Ed25519 private key outside this repository. Run `npm run sign -- guide
 
 ## Install for a first user
 
-Build the extension, open `chrome://extensions`, turn on Developer mode, choose Load unpacked, and select the `guide/dist` folder. The manifest gives unpacked installs the stable extension id `ifddhmbhflocnincgbajaeeiopoipdck`. Send the person one start link that includes the HTTPS guide address and parameters, for example `chrome-extension://ifddhmbhflocnincgbajaeeiopoipdck/start.html?guide=https%3A%2F%2Fexample.org%2Fguides%2Fchatgpt-project-rule.json&projectName=Coaching&name=Alex`. Chrome shows the source and task site names before granting access.
+Build the extension, open `chrome://extensions`, turn on Developer mode, choose Load unpacked, and select the `guide/dist` folder. Because the manifest has no fixed key, copy the extension id Chrome assigns to this unpacked install when constructing a start link. Send the person one start link that includes the HTTPS guide address and parameters, for example `chrome-extension://EXTENSION_ID/start.html?guide=https%3A%2F%2Fexample.org%2Fguides%2Fchatgpt-project-rule.json&projectName=Coaching&name=Alex`. Chrome shows the source and task site names before granting access.
 
 This implementation was authored for the community-seed public repository from the behavior of Yeshie's Guide mode, without importing or depending on Yeshie.

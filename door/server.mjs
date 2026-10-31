@@ -44,6 +44,7 @@ const SKILLS_DIR = process.env.SEED_DOOR_SKILLS || path.join(HERE, 'skills');
 const JOIN_POLL_MS = Number(process.env.SEED_DOOR_JOIN_POLL_MS || 20000);
 const VERSION = '0.1.0';
 const FEEDBACK_FILE = path.join(HOME, 'guide-feedback.jsonl');
+const MAX_FEEDBACK_FILE_BYTES = 50 * 1024 * 1024;
 
 const log = (fields) => process.stdout.write(JSON.stringify({ ts: new Date().toISOString(), ...fields }) + '\n');
 const text = (s) => ({ content: [{ type: 'text', text: s }] });
@@ -325,12 +326,25 @@ function readBody(req, limit = 256 * 1024) {
 }
 
 const feedbackRates = new Map();
-function feedbackWithinRate(ip) {
-  const now = Date.now();
-  const rows = (feedbackRates.get(ip) || []).filter(at => now - at < 24 * 60 * 60 * 1000);
-  if (rows.filter(at => now - at < 60 * 60 * 1000).length >= 10 || rows.length >= 50) { feedbackRates.set(ip, rows); return false; }
-  rows.push(now); feedbackRates.set(ip, rows); return true;
+let feedbackAccepted = [];
+function cleanFeedbackRates(now) {
+  feedbackAccepted = feedbackAccepted.filter(at => now - at < 60 * 60 * 1000);
+  for (const [ip, rows] of feedbackRates) {
+    const current = rows.filter(at => now - at < 24 * 60 * 60 * 1000);
+    if (current.length) feedbackRates.set(ip, current);
+    else feedbackRates.delete(ip);
+  }
 }
+function feedbackWithinRate(ip, now = Date.now()) {
+  cleanFeedbackRates(now);
+  const rows = feedbackRates.get(ip) || [];
+  return rows.filter(at => now - at < 60 * 60 * 1000).length < 10 && rows.length < 50 && feedbackAccepted.length < 500;
+}
+function recordFeedback(ip, now = Date.now()) {
+  const rows = feedbackRates.get(ip) || [];
+  rows.push(now); feedbackRates.set(ip, rows); feedbackAccepted.push(now);
+}
+const feedbackRateEntryCount = () => feedbackRates.size;
 
 function feedbackCors(req, res) {
   const origin = req.headers.origin;
@@ -360,7 +374,11 @@ const httpServer = http.createServer(async (req, res) => {
     }
     const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').map(value => value.trim()).filter(Boolean);
     const ip = forwarded.at(-1) || req.socket.remoteAddress || 'unknown';
-    if (!feedbackWithinRate(ip)) { res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '3600' }); res.end('{"error":"too many requests"}'); return; }
+    try {
+      if (fs.statSync(FEEDBACK_FILE, { throwIfNoEntry: false })?.size > MAX_FEEDBACK_FILE_BYTES) {
+        res.writeHead(507, { 'Content-Type': 'application/json' }); res.end('{"error":"feedback storage is full"}'); return;
+      }
+    } catch { res.writeHead(503, { 'Content-Type': 'application/json' }); res.end('{"error":"feedback storage unavailable"}'); return; }
     let body;
     try { body = JSON.parse(await readBody(req, 64 * 1024)); }
     catch (error) {
@@ -369,9 +387,13 @@ const httpServer = http.createServer(async (req, res) => {
     }
     const error = feedbackError(body);
     if (error) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error })); return; }
-    ensureHome(HOME);
-    fs.appendFileSync(FEEDBACK_FILE, JSON.stringify({ serverTimestamp: new Date().toISOString(), ...body }) + '\n', { mode: 0o600 });
-    fs.chmodSync(FEEDBACK_FILE, 0o600);
+    if (!feedbackWithinRate(ip)) { res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '3600' }); res.end('{"error":"too many requests"}'); return; }
+    try {
+      ensureHome(HOME);
+      fs.appendFileSync(FEEDBACK_FILE, JSON.stringify({ serverTimestamp: new Date().toISOString(), ...body }) + '\n', { mode: 0o600 });
+      fs.chmodSync(FEEDBACK_FILE, 0o600);
+    } catch { res.writeHead(503, { 'Content-Type': 'application/json' }); res.end('{"error":"feedback storage unavailable"}'); return; }
+    recordFeedback(ip);
     res.writeHead(201, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end('{"ok":true}');
     return;
   }
@@ -419,4 +441,4 @@ if (process.env.SEED_DOOR_NO_START !== '1') {
   setInterval(() => pollJoins().catch(e => log({ event: 'poll-error', error: String(e) })), JOIN_POLL_MS).unref();
 }
 
-export { buildServer, httpServer, pollJoins };
+export { buildServer, feedbackRateEntryCount, feedbackWithinRate, httpServer, pollJoins, recordFeedback };

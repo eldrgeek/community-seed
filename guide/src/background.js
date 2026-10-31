@@ -1,24 +1,55 @@
-import { assertStepSite, substitute, validateGuide, verifyGuideBytes } from './guide-core.js';
+import { assertStepSite, isAllowedStepTransition, substitute, validateGuide, verifyGuideBytes } from './guide-core.js';
 
 const PUBLIC_KEY = '__GUIDE_PUBLIC_KEY__';
 const FEEDBACK_URL = '__FEEDBACK_URL__';
+const REMOVABLE_ORIGINS_KEY = 'guide-removable-origins';
 
 const sessionKey = tabId => `guide-tab-${tabId}`;
 const getSession = async tabId => (await chrome.storage.session.get(sessionKey(tabId)))[sessionKey(tabId)];
 const setSession = async (tabId, session) => chrome.storage.session.set({ [sessionKey(tabId)]: session });
 const removeSession = async tabId => chrome.storage.session.remove(sessionKey(tabId));
+let permissionQueue = Promise.resolve();
+const serializePermissionUpdate = task => {
+  const next = permissionQueue.then(task, task);
+  permissionQueue = next.catch(() => {});
+  return next;
+};
 
 async function releaseGuidePermissions(session, tabId) {
-  const stored = await chrome.storage.session.get(null);
-  const otherSites = new Set(Object.entries(stored).filter(([key]) => key !== sessionKey(tabId)).flatMap(([, value]) => value?.guide?.allowedSites || []));
-  const origins = (session.removableOrigins || []).filter(origin => !otherSites.has(new URL(origin).origin));
-  if (origins.length) await chrome.permissions.remove({ origins });
+  return serializePermissionUpdate(async () => {
+    const stored = await chrome.storage.session.get(null);
+    const inUse = new Set(Object.entries(stored).filter(([key]) => key !== sessionKey(tabId)).flatMap(([, value]) => (value?.guide?.allowedSites || []).map(site => `${site}/*`)));
+    const local = await chrome.storage.local.get(REMOVABLE_ORIGINS_KEY);
+    const tracked = local[REMOVABLE_ORIGINS_KEY] || [];
+    const origins = tracked.filter(origin => !inUse.has(origin));
+    if (origins.length) await chrome.permissions.remove({ origins });
+    await chrome.storage.local.set({ [REMOVABLE_ORIGINS_KEY]: tracked.filter(origin => inUse.has(origin)) });
+  });
+}
+
+async function rememberGuidePermissions(origins) {
+  return serializePermissionUpdate(async () => {
+    const local = await chrome.storage.local.get(REMOVABLE_ORIGINS_KEY);
+    await chrome.storage.local.set({ [REMOVABLE_ORIGINS_KEY]: [...new Set([...(local[REMOVABLE_ORIGINS_KEY] || []), ...origins])] });
+  });
+}
+
+async function clearRememberedPermissions() {
+  return serializePermissionUpdate(async () => {
+    const local = await chrome.storage.local.get(REMOVABLE_ORIGINS_KEY);
+    const origins = local[REMOVABLE_ORIGINS_KEY] || [];
+    if (origins.length) await chrome.permissions.remove({ origins });
+    await chrome.storage.local.remove(REMOVABLE_ORIGINS_KEY);
+  });
 }
 
 async function placeRunner(tabId) {
   const session = await getSession(tabId);
   if (!session) return;
   try {
+    const tab = await chrome.tabs.get(tabId);
+    const origin = (() => { try { return new URL(tab.url).origin; } catch { return null; } })();
+    if (!origin || !session.guide.allowedSites.includes(origin)) throw new Error('The tab is not on a site allowed by this guide.');
     await chrome.scripting.executeScript({ target: { tabId }, files: ['guide-runtime-core.js', 'runner.js'] });
     await chrome.tabs.sendMessage(tabId, { type: 'show-guide', session });
   } catch (error) {
@@ -37,7 +68,8 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       const tab = await chrome.tabs.create({ url: first.type === 'open' ? first.url : guide.allowedSites[0] });
       const allowedOrigins = new Set(guide.allowedSites.map(site => `${site}/*`));
       const removableOrigins = (message.removableOrigins || []).filter(origin => allowedOrigins.has(origin));
-      await setSession(tab.id, { guide, index: 0, skipped: [], removableOrigins });
+      await setSession(tab.id, { guide, signedTitle: raw.title, index: 0, skipped: [], removableOrigins });
+      await rememberGuidePermissions(removableOrigins);
       respond({ ok: true });
     })().catch(error => respond({ error: error.message }));
     return true;
@@ -59,7 +91,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     const session = await getSession(tabId);
     if (!session) return;
     if (message.type === 'guide-index') {
-      if (!Number.isInteger(message.index) || message.index < 0 || message.index > session.guide.steps.length || ![session.index - 1, session.index + 1].includes(message.index)) return respond({ error: 'Invalid guide step transition.' });
+      if (!isAllowedStepTransition(session.guide, session.index, message.index)) return respond({ error: 'Invalid guide step transition.' });
       if (message.skipped && message.skippedIndex !== session.index) return respond({ error: 'Invalid skipped step.' });
       session.index = message.index;
       if (message.skipped) session.skipped.push(message.skippedIndex);
@@ -78,3 +110,4 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 
 chrome.tabs.onUpdated.addListener((tabId, change) => { if (change.status === 'complete') placeRunner(tabId); });
 chrome.tabs.onRemoved.addListener(async tabId => { const session = await getSession(tabId); if (session) { await removeSession(tabId); await releaseGuidePermissions(session, tabId); } });
+chrome.runtime.onStartup.addListener(() => { clearRememberedPermissions().catch(error => console.warn('SOMA Guide could not clear site access:', error.message)); });

@@ -35,6 +35,7 @@ form.addEventListener('submit', async event => {
     await verifyGuideBytes(bytes, signature, PUBLIC_KEY);
     const raw = validateGuide(JSON.parse(new TextDecoder().decode(bytes)));
     const params = {};
+    for (const name of query.keys()) if (name !== 'guide' && !(name in (raw.parameters || {}))) throw new Error(`The link has an undeclared guide parameter: ${name}`);
     for (const [name, definition] of Object.entries(raw.parameters || {})) {
       const supplied = query.get(name);
       const value = supplied ?? definition.default;
@@ -47,6 +48,11 @@ form.addEventListener('submit', async event => {
     pendingParams = params;
     document.querySelector('#title').textContent = pending.title;
     document.querySelector('#sites').replaceChildren(...pending.allowedSites.map(site => { const li = document.createElement('li'); li.textContent = site; return li; }));
+    document.querySelector('#parameters').replaceChildren(...Object.entries(params).flatMap(([name, value]) => {
+      const term = document.createElement('dt'); term.textContent = name;
+      const detail = document.createElement('dd'); detail.textContent = value;
+      return [term, detail];
+    }));
     review.hidden = false; status.textContent = '';
   } catch (error) { status.textContent = error.message; }
 });

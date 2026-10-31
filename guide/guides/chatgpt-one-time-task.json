@@ -2,10 +2,9 @@
   "id": "chatgpt-one-time-task",
   "title": "Create a one-time ChatGPT task",
   "allowedSites": ["https://chatgpt.com"],
-  "parameters": { "taskMessage": {} },
   "steps": [
     { "type": "open", "url": "https://chatgpt.com/", "instruction": "Open the chat where the connector is turned on." },
-    { "type": "copy", "instruction": "Read the task message, then click Copy and paste it into the chat.", "copy": "{{taskMessage}}" },
+    { "type": "copy", "instruction": "Read the task message, then click Copy and paste it into the chat.", "copy": "Create a one-time task to remind me to review my priorities tomorrow morning." },
     { "type": "point", "instruction": "Send the message yourself.", "target": "button[data-testid=\"send-button\"]" },
     { "type": "wait", "instruction": "Wait for ChatGPT to confirm the task.", "doneWhen": { "textAppears": "Task created" } },
     { "type": "done", "instruction": "Task created appeared. This guide is complete." }

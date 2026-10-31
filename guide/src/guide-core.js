@@ -1,5 +1,6 @@
 export const MAX_COPY_LENGTH = 4000;
 export const MAX_FEEDBACK_NOTE_LENGTH = 2000;
+export const PARAMETER_VALUE_RE = /^[A-Za-z0-9 '\-.]{1,60}$/;
 
 const STEP_KEYS = new Set(['type', 'instruction', 'target', 'url', 'copy', 'doneWhen', 'verify', 'targetText']);
 const DONE_KEYS = new Set(['selectorAppears', 'selectorGone', 'textAppears', 'urlIncludes']);
@@ -19,8 +20,13 @@ export function validateGuide(guide) {
   if (typeof guide.id !== 'string' || !/^[a-z0-9-]+$/.test(guide.id)) throw new Error('The guide id is invalid.');
   if (typeof guide.title !== 'string' || !guide.title.trim()) throw new Error('The guide title is missing.');
   if (!Array.isArray(guide.allowedSites) || !guide.allowedSites.length) throw new Error('The guide has no allowed sites.');
-  for (const site of guide.allowedSites) if (!siteOrigin(site) || siteOrigin(site) !== site) throw new Error(`Invalid allowed site: ${site}`);
+  for (const site of guide.allowedSites) if (typeof site !== 'string' || site.includes('{{') || site.includes('}}') || !siteOrigin(site) || siteOrigin(site) !== site) throw new Error(`Invalid allowed site: ${site}`);
   if (guide.parameters !== undefined && (!guide.parameters || typeof guide.parameters !== 'object' || Array.isArray(guide.parameters))) throw new Error('Guide parameters are invalid.');
+  for (const [name, definition] of Object.entries(guide.parameters || {})) {
+    if (!/^[a-zA-Z][\w-]*$/.test(name) || !definition || typeof definition !== 'object' || Array.isArray(definition)
+      || Object.keys(definition).some(key => key !== 'default')) throw new Error(`Guide parameter ${name} is invalid.`);
+    if (definition.default !== undefined && (typeof definition.default !== 'string' || !PARAMETER_VALUE_RE.test(definition.default))) throw new Error(`Guide parameter ${name} has an invalid default.`);
+  }
   if (!Array.isArray(guide.steps) || !guide.steps.length) throw new Error('The guide has no steps.');
   for (const [index, step] of guide.steps.entries()) {
     if (!step || typeof step !== 'object' || Array.isArray(step)) throw new Error(`Step ${index + 1} is invalid.`);
@@ -29,7 +35,7 @@ export function validateGuide(guide) {
     if (typeof step.instruction !== 'string' || !step.instruction.trim()) throw new Error(`Step ${index + 1} has no instruction.`);
     if (step.target !== undefined && typeof step.target !== 'string') throw new Error(`Step ${index + 1} has an invalid target.`);
     if (step.targetText !== undefined && (typeof step.targetText !== 'string' || !step.target)) throw new Error(`Step ${index + 1} has invalid target text.`);
-    if (step.url !== undefined && !siteOrigin(step.url)) throw new Error(`Step ${index + 1} has an invalid URL.`);
+    if (step.url !== undefined && (typeof step.url !== 'string' || step.url.includes('{{') || step.url.includes('}}') || !siteOrigin(step.url))) throw new Error(`Step ${index + 1} has an invalid URL.`);
     if (step.type === 'open' && !guide.allowedSites.includes(siteOrigin(step.url))) throw new Error(`Step ${index + 1} opens a site that is not allowed.`);
     if (step.copy !== undefined && typeof step.copy !== 'string') throw new Error(`Step ${index + 1} has invalid copy text.`);
     if (step.copy?.length > MAX_COPY_LENGTH) throw new Error(`Step ${index + 1} copy text is over 4000 characters.`);
@@ -50,13 +56,21 @@ export function validateGuide(guide) {
   return guide;
 }
 
-export function substitute(value, params) {
+export function substitute(value, params, context = null) {
+  if (context === null && value && typeof value === 'object' && !Array.isArray(value)) {
+    const declared = new Set(Object.keys(value.parameters || {}));
+    for (const [name, supplied] of Object.entries(params || {})) {
+      if (!declared.has(name)) throw new Error(`The link has an undeclared guide parameter: ${name}`);
+      if (typeof supplied !== 'string' || !PARAMETER_VALUE_RE.test(supplied)) throw new Error(`The ${name} parameter must be 1 to 60 characters using only letters, digits, spaces, hyphens, apostrophes, and periods.`);
+    }
+  }
   if (typeof value === 'string') return value.replace(/\{\{([a-zA-Z][\w-]*)\}\}/g, (_, key) => {
     if (!(key in params)) throw new Error(`Missing guide parameter: ${key}`);
-    return String(params[key]);
+    const supplied = String(params[key]);
+    return context === 'target' ? supplied.replaceAll("'", '\\27 ') : supplied;
   });
-  if (Array.isArray(value)) return value.map(item => substitute(item, params));
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, substitute(item, params)]));
+  if (Array.isArray(value)) return value.map(item => substitute(item, params, context));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, substitute(item, params, key)]));
   return value;
 }
 
@@ -71,18 +85,21 @@ export function checkSaved(value, equals) {
   return value.trim() === equals.trim() ? 'match' : 'different';
 }
 
-export function buildFeedback({ guide, step, stepIndex, url, userAgent, extensionVersion, targetMatched, note, snapshot }) {
+export function isAllowedStepTransition(guide, currentIndex, nextIndex) {
+  const retryStep = guide.steps[currentIndex]?.verify?.retryStep;
+  return Number.isInteger(nextIndex) && nextIndex >= 0 && nextIndex <= guide.steps.length
+    && [currentIndex - 1, currentIndex + 1, retryStep].filter(Number.isInteger).includes(nextIndex);
+}
+
+export function buildFeedback({ guide, signedTitle, step, stepIndex, url, userAgent, extensionVersion, targetMatched, note, snapshot }) {
   const page = new URL(url);
   return {
     guideId: guide.id,
-    guideTitle: guide.title,
+    ...(guide.title === signedTitle ? { guideTitle: guide.title } : {}),
     stepIndex,
-    stepType: step.type,
-    stepInstruction: step.instruction,
-    url: `${page.origin}${page.pathname}`,
+    url: page.origin,
     userAgent,
     extensionVersion,
-    targetSelector: step.target || null,
     targetMatched: !!targetMatched,
     note,
     snapshot,
@@ -91,8 +108,10 @@ export function buildFeedback({ guide, step, stepIndex, url, userAgent, extensio
 
 export function structureSnapshot(rootElement) {
   if (!rootElement) return null;
+  const rootRole = rootElement.getAttribute?.('role');
+  if (!['dialog', 'menu'].includes(rootRole) || rootElement.hidden || rootElement.getAttribute?.('aria-hidden') === 'true') return null;
   let count = 0;
-  const skipped = element => element.isContentEditable || element.matches?.('[contenteditable], [data-message-id], [data-testid^="conversation"], article, [role="log"]');
+  const skipped = element => element.isContentEditable || element.matches?.('nav, aside, a[href], [contenteditable], [data-message-id], [data-testid^="conversation"], article, [role="log"]');
   const visit = (element, depth) => {
     if (!element || depth > 8 || count >= 300 || skipped(element)) return null;
     count += 1;
@@ -101,7 +120,7 @@ export function structureSnapshot(rootElement) {
     const node = { tag };
     for (const name of ['role', 'aria-label', 'data-testid', 'type']) {
       const value = element.getAttribute?.(name);
-      if (value) node[name] = String(value);
+      if (value) node[name] = String(value).slice(0, name === 'aria-label' ? 40 : 500);
     }
     if (tag === 'button' || tag === 'a' || tag === 'label' || ['menuitem', 'button'].includes(node.role)) {
       const label = String(element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
