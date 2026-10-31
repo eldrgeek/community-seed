@@ -29,6 +29,32 @@ export const LIMITS = {
 export const NEIGHBOR_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 export const SLUG_RE = /^[a-z0-9]{6,16}$/;
 export const SKILL_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
+const FEEDBACK_KEYS = ['extensionVersion', 'guideId', 'guideTitle', 'note', 'snapshot', 'stepIndex', 'stepInstruction', 'stepType', 'targetMatched', 'targetSelector', 'url', 'userAgent'];
+const SNAPSHOT_KEYS = new Set(['tag', 'role', 'aria-label', 'data-testid', 'type', 'label', 'children']);
+
+export function feedbackError(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join('\0') !== FEEDBACK_KEYS.join('\0')) return 'invalid fields';
+  const string = (key, min, max) => typeof body[key] === 'string' && body[key].length >= min && body[key].length <= max;
+  if (!string('guideId', 1, 128) || !/^[a-z0-9-]+$/.test(body.guideId) || !string('guideTitle', 1, 500)
+    || !Number.isInteger(body.stepIndex) || body.stepIndex < 0 || body.stepIndex > 10000
+    || !['open', 'point', 'copy', 'wait', 'done'].includes(body.stepType) || !string('stepInstruction', 1, 4000)
+    || !string('url', 1, 2048) || !/^https?:\/\/[^?#]+$/.test(body.url) || !string('userAgent', 1, 1000)
+    || !string('extensionVersion', 1, 64) || !/^[0-9A-Za-z._-]+$/.test(body.extensionVersion)
+    || !(body.targetSelector === null || string('targetSelector', 1, 2000)) || typeof body.targetMatched !== 'boolean'
+    || !string('note', 1, 2000)) return 'invalid value';
+  let nodes = 0;
+  const nodeError = (node, depth) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node) || depth > 8 || ++nodes > 300) return true;
+    if (Object.keys(node).some(key => !SNAPSHOT_KEYS.has(key)) || typeof node.tag !== 'string' || !/^[a-z0-9-]{1,40}$/.test(node.tag)) return true;
+    for (const key of ['role', 'aria-label', 'data-testid', 'type']) if (node[key] !== undefined && (typeof node[key] !== 'string' || !node[key] || node[key].length > 500)) return true;
+    if (node.label !== undefined && (typeof node.label !== 'string' || !node.label || node.label.length > 40
+      || !['button', 'a', 'label'].includes(node.tag) && !['menuitem', 'button'].includes(node.role))) return true;
+    if (node.children !== undefined && (!Array.isArray(node.children) || node.children.some(child => nodeError(child, depth + 1)))) return true;
+    return false;
+  };
+  if (!(body.snapshot === null || !nodeError(body.snapshot, 0))) return 'invalid snapshot';
+  return null;
+}
 
 export const ACCORD_HEADERS = {
   'Content-Type': 'application/json',

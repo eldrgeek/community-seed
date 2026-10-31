@@ -1,12 +1,14 @@
 # SOMA Guide
 
-SOMA Guide is a small Chrome Manifest V3 extension for signed, human-operated walkthroughs. It opens an allowed page, points to controls, shows plain instructions, and waits for visible changes. It never clicks, types, submits, reads page text for a server, or reports progress anywhere. Copy text is always visible and reaches the clipboard only after the person clicks Copy.
+SOMA Guide is a small Chrome Manifest V3 extension for signed, human-operated walkthroughs. It opens an allowed page, points to controls, shows plain instructions, and waits for visible changes. It never clicks, types, or submits on the person's behalf, and it does not report progress. Copy text is always visible and reaches the clipboard only after the person clicks Copy.
 
-The extension has no relay, analytics, recipes, debugger access, or automation runtime. It accepts only the documented data fields. It refuses unsigned or altered guides, sites that a guide did not declare, and copy text longer than 4000 characters.
+Every step has a “Something's wrong” link. It prepares a privacy-stripped structural snapshot and shows the exact JSON before anything is sent. Only clicking Send posts that JSON to the fixed feedback endpoint at `https://vps.mike-wolf.com/seed-door/feedback`; the background worker makes the request. Snapshots omit ordinary page text, field values, editable content, conversations, articles, and logs. Apart from downloading the selected guide and signature, this feedback POST is the extension's only network call.
+
+The extension has no analytics, recipes, debugger access, or automation runtime. It accepts only the documented data fields. It refuses unsigned or altered guides, sites that a guide did not declare, and copy text longer than 4000 characters.
 
 ## Build
 
-Run `npm run build`. The unpacked extension is written to `dist/`. Set `GUIDE_PUBLIC_KEY_SPKI_BASE64` to an Ed25519 public key in base64 DER SPKI form for a production build. Set `GUIDE_BASE_URL` to the HTTPS folder that hosts guides. The committed public key verifies the two example guides.
+Run `npm run build`. The unpacked extension is written to `dist/`. Set `GUIDE_PUBLIC_KEY_SPKI_BASE64` to an Ed25519 public key in base64 DER SPKI form for a production build. Set `GUIDE_BASE_URL` to the HTTPS folder that hosts guides. `FEEDBACK_URL` is a build constant and defaults to the fixed endpoint above. The committed public key verifies signed example guides.
 
 ## Sign a guide
 

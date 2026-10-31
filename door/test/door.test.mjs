@@ -58,6 +58,12 @@ const call = async (client, name, args = {}) => {
   const r = await client.callTool({ name, arguments: args });
   return { text: r.content.map(c => c.text).join('\n'), isError: !!r.isError };
 };
+const feedback = (overrides = {}) => ({ guideId: 'test-guide', guideTitle: 'Test guide', stepIndex: 1, stepType: 'point', stepInstruction: 'Click the control.',
+  url: 'https://example.test/path', userAgent: 'Test browser', extensionVersion: '0.1.0', targetSelector: '#control', targetMatched: true,
+  note: 'The control is missing.', snapshot: { tag: 'section', role: 'dialog', children: [{ tag: 'button', type: 'button', label: 'Continue' }] }, ...overrides });
+const postFeedback = (body, ip, headers = {}) => fetch(`http://127.0.0.1:${doorPort}/feedback`, { method: 'POST',
+  headers: { Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop', 'Content-Type': 'application/json', 'X-Forwarded-For': ip, ...headers },
+  body: typeof body === 'string' ? body : JSON.stringify(body) });
 
 before(async () => {
   await new Promise(r => fake.listen(0, '127.0.0.1', r));
@@ -82,6 +88,36 @@ test('an unknown door token gets a plain 404 and reveals nothing', async () => {
   assert.equal(r.status, 404);
   const health = await (await fetch(`http://127.0.0.1:${doorPort}/healthz`)).json();
   assert.deepEqual([health.ok, health.neighbors, health.admittedRooms], [true, 1, 0]);
+});
+
+test('valid guide feedback is accepted and stored without open permissions', async () => {
+  const r = await postFeedback(feedback(), '192.0.2.1');
+  assert.equal(r.status, 201);
+  const file = path.join(HOME, 'guide-feedback.jsonl');
+  const row = JSON.parse(fs.readFileSync(file, 'utf8').trim());
+  assert.equal(row.guideId, 'test-guide');
+  assert.match(row.serverTimestamp, /^\d{4}-\d\d-/);
+  assert.equal(fs.statSync(file).mode & 0o077, 0);
+});
+
+test('guide feedback rejects an unknown key', async () => {
+  const r = await postFeedback(feedback({ extra: true }), '192.0.2.2');
+  assert.equal(r.status, 400);
+});
+
+test('guide feedback rejects a body beyond 64 KiB', async () => {
+  const r = await postFeedback(JSON.stringify({ ...feedback(), note: 'x'.repeat(70 * 1024) }), '192.0.2.3');
+  assert.equal(r.status, 413);
+});
+
+test('guide feedback rejects bad JSON', async () => {
+  const r = await postFeedback('{bad', '192.0.2.4');
+  assert.equal(r.status, 400);
+});
+
+test('guide feedback limits one client to ten submissions per hour', async () => {
+  for (let i = 0; i < 10; i++) assert.equal((await postFeedback(feedback({ note: `Report ${i}` }), '192.0.2.5')).status, 201);
+  assert.equal((await postFeedback(feedback(), '192.0.2.5')).status, 429);
 });
 
 test('the tools are listed, reads are marked read-only, writes are not', async () => {

@@ -1,4 +1,5 @@
 export const MAX_COPY_LENGTH = 4000;
+export const MAX_FEEDBACK_NOTE_LENGTH = 2000;
 
 const STEP_KEYS = new Set(['type', 'instruction', 'target', 'url', 'copy', 'doneWhen', 'verify', 'targetText']);
 const DONE_KEYS = new Set(['selectorAppears', 'selectorGone', 'textAppears', 'urlIncludes']);
@@ -68,6 +69,54 @@ export function pickTarget(elements, text) {
 export function checkSaved(value, equals) {
   if (value === null || value === undefined) return 'waiting';
   return value.trim() === equals.trim() ? 'match' : 'different';
+}
+
+export function buildFeedback({ guide, step, stepIndex, url, userAgent, extensionVersion, targetMatched, note, snapshot }) {
+  const page = new URL(url);
+  return {
+    guideId: guide.id,
+    guideTitle: guide.title,
+    stepIndex,
+    stepType: step.type,
+    stepInstruction: step.instruction,
+    url: `${page.origin}${page.pathname}`,
+    userAgent,
+    extensionVersion,
+    targetSelector: step.target || null,
+    targetMatched: !!targetMatched,
+    note,
+    snapshot,
+  };
+}
+
+export function structureSnapshot(rootElement) {
+  if (!rootElement) return null;
+  let count = 0;
+  const skipped = element => element.isContentEditable || element.matches?.('[contenteditable], [data-message-id], [data-testid^="conversation"], article, [role="log"]');
+  const visit = (element, depth) => {
+    if (!element || depth > 8 || count >= 300 || skipped(element)) return null;
+    count += 1;
+    const tag = String(element.tagName || element.nodeName || '').toLowerCase();
+    if (!tag) return null;
+    const node = { tag };
+    for (const name of ['role', 'aria-label', 'data-testid', 'type']) {
+      const value = element.getAttribute?.(name);
+      if (value) node[name] = String(value);
+    }
+    if (tag === 'button' || tag === 'a' || tag === 'label' || ['menuitem', 'button'].includes(node.role)) {
+      const label = String(element.innerText || element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      if (label) node.label = label;
+    }
+    const children = [];
+    for (const child of Array.from(element.children || [])) {
+      const saved = visit(child, depth + 1);
+      if (saved) children.push(saved);
+      if (count >= 300) break;
+    }
+    if (children.length) node.children = children;
+    return node;
+  };
+  return visit(rootElement, 0);
 }
 
 export function assertStepSite(step, allowedSites, currentUrl) {

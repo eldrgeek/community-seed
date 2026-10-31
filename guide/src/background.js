@@ -1,6 +1,7 @@
 import { assertStepSite, substitute, validateGuide, verifyGuideBytes } from './guide-core.js';
 
 const PUBLIC_KEY = '__GUIDE_PUBLIC_KEY__';
+const FEEDBACK_URL = '__FEEDBACK_URL__';
 
 const sessionKey = tabId => `guide-tab-${tabId}`;
 const getSession = async tabId => (await chrome.storage.session.get(sessionKey(tabId)))[sessionKey(tabId)];
@@ -37,6 +38,18 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       const allowedOrigins = new Set(guide.allowedSites.map(site => `${site}/*`));
       const removableOrigins = (message.removableOrigins || []).filter(origin => allowedOrigins.has(origin));
       await setSession(tab.id, { guide, index: 0, skipped: [], removableOrigins });
+      respond({ ok: true });
+    })().catch(error => respond({ error: error.message }));
+    return true;
+  }
+  if (message.type === 'guide-feedback') {
+    if (!sender.tab?.id || sender.id !== chrome.runtime.id || sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
+      respond({ error: 'Feedback is accepted only from this extension on a guide page.' });
+      return false;
+    }
+    (async () => {
+      const response = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(message.payload) });
+      if (!response.ok) throw new Error(`Feedback was not sent (HTTP ${response.status}).`);
       respond({ ok: true });
     })().catch(error => respond({ error: error.message }));
     return true;

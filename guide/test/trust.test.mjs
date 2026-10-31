@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign, webcrypto } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { assertStepSite, checkSaved, pickTarget, substitute, validateGuide, verifyGuideBytes } from '../src/guide-core.js';
+import { assertStepSite, buildFeedback, checkSaved, pickTarget, structureSnapshot, substitute, validateGuide, verifyGuideBytes } from '../src/guide-core.js';
 
 const basic = {
   id: 'test-guide', title: 'Test', allowedSites: ['https://example.test'],
@@ -53,7 +53,7 @@ test('refuses parameters that expand copy text over 4000 characters', () => {
   assert.throws(() => validateGuide(substitute(validateGuide(guide), { message: 'x'.repeat(4001) })), /over 4000/);
 });
 
-test('built output contains no automation entry points or permissions', async () => {
+test('built output contains no automation entry points and only the fixed feedback host permission', async () => {
   const dist = resolve(import.meta.dirname, '../dist');
   const names = await readdir(dist);
   const text = (await Promise.all(names.filter(name => /\.(js|json|html)$/.test(name)).map(name => readFile(resolve(dist, name), 'utf8')))).join('\n');
@@ -62,8 +62,46 @@ test('built output contains no automation entry points or permissions', async ()
   }
   const manifest = JSON.parse(await readFile(resolve(dist, 'manifest.json'), 'utf8'));
   assert.deepEqual(manifest.permissions, ['storage', 'scripting']);
-  assert.equal('host_permissions' in manifest, false);
+  assert.deepEqual(manifest.host_permissions, ['https://vps.mike-wolf.com/*']);
   assert.deepEqual(manifest.optional_host_permissions, ['https://*/*']);
+});
+
+test('feedback contains the exact context and removes query strings and hashes', () => {
+  const step = { type: 'point', instruction: 'Choose it.', target: '#target' };
+  assert.deepEqual(buildFeedback({ guide: basic, step, stepIndex: 2, url: 'https://example.test/path?q=secret#part', userAgent: 'Test',
+    extensionVersion: '0.1.0', targetMatched: 1, note: 'It moved.', snapshot: null }), {
+    guideId: 'test-guide', guideTitle: 'Test', stepIndex: 2, stepType: 'point', stepInstruction: 'Choose it.',
+    url: 'https://example.test/path', userAgent: 'Test', extensionVersion: '0.1.0', targetSelector: '#target',
+    targetMatched: true, note: 'It moved.', snapshot: null,
+  });
+});
+
+test('the structure snapshot keeps controls but no page text, field values, or messages', () => {
+  const element = (tag, attributes = {}, text = '', children = [], extra = {}) => ({ tagName: tag.toUpperCase(), children, textContent: text, innerText: text,
+    isContentEditable: !!extra.isContentEditable, value: extra.value, getAttribute: name => attributes[name] ?? null,
+    matches: selector => selector.split(',').some(part => {
+      const value = part.trim();
+      return value === '[contenteditable]' && attributes.contenteditable !== undefined
+        || value === '[data-message-id]' && attributes['data-message-id'] !== undefined
+        || value === '[data-testid^="conversation"]' && String(attributes['data-testid'] || '').startsWith('conversation')
+        || value === 'article' && tag === 'article' || value === '[role="log"]' && attributes.role === 'log';
+    }),
+  });
+  const marker = 'PRIVATE-MARKER';
+  const root = element('section', { role: 'dialog', 'aria-label': 'Settings' }, marker, [
+    element('textarea', {}, marker, [], { value: marker }), element('p', {}, marker),
+    element('button', { type: 'submit' }, 'Save changes'), element('div', { 'data-message-id': '1' }, marker, [element('button', {}, marker)]),
+  ]);
+  const snapshot = structureSnapshot(root);
+  assert.deepEqual(snapshot.children.find(node => node.tag === 'button'), { tag: 'button', type: 'submit', label: 'Save changes' });
+  assert.equal(JSON.stringify(snapshot).includes(marker), false);
+});
+
+test('the background posts feedback only to its fixed build constant', async () => {
+  const background = await readFile(resolve(import.meta.dirname, '../dist/background.js'), 'utf8');
+  assert.match(background, /const FEEDBACK_URL = 'https:\/\/vps\.mike-wolf\.com\/seed-door\/feedback'/);
+  assert.match(background, /fetch\(FEEDBACK_URL, \{ method: 'POST'/);
+  assert.equal([...background.matchAll(/method: 'POST'/g)].length, 1);
 });
 
 test('the built start, background, and runner wire in both trust checks', async () => {

@@ -41,8 +41,8 @@
     },
     {
       "type": "point",
-      "instruction": "Press Save.",
-      "target": "[role=\"dialog\"] button[type=\"submit\"]",
+      "instruction": "Close this window with Save if you see it, otherwise with the X. ChatGPT may save either way, and the next steps check.",
+      "target": "[role=\"dialog\"] button[type=\"submit\"], [role=\"dialog\"] button[aria-label=\"Close dialog\"]",
       "doneWhen": {
         "selectorGone": "textarea[name=\"project-instructions\"]"
       }

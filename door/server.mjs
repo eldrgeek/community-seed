@@ -33,7 +33,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod';
 import {
   ACCORD, ACCORD_HEADERS, HOME, LIMITS, PUBLIC_ACCORD, SKILL_RE, accord, countWrite, ensureHome, joinFile, keyFile, loadNeighbors,
-  markDraftPosted, neighborForToken, paths, privacyProblems, readDraft, readJson, roomKey, saveDraft,
+  feedbackError, markDraftPosted, neighborForToken, paths, privacyProblems, readDraft, readJson, roomKey, saveDraft,
   seedSkills, writeJson, writesToday, draftVersions,
 } from './lib.mjs';
 
@@ -43,6 +43,7 @@ const HOST = process.env.SEED_DOOR_HOST || '127.0.0.1';
 const SKILLS_DIR = process.env.SEED_DOOR_SKILLS || path.join(HERE, 'skills');
 const JOIN_POLL_MS = Number(process.env.SEED_DOOR_JOIN_POLL_MS || 20000);
 const VERSION = '0.1.0';
+const FEEDBACK_FILE = path.join(HOME, 'guide-feedback.jsonl');
 
 const log = (fields) => process.stdout.write(JSON.stringify({ ts: new Date().toISOString(), ...fields }) + '\n');
 const text = (s) => ({ content: [{ type: 'text', text: s }] });
@@ -316,10 +317,29 @@ function readBody(req, limit = 256 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
-    req.on('data', c => { size += c.length; if (size > limit) { reject(new Error('too large')); req.destroy(); } else chunks.push(c); });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    let tooLarge = false;
+    req.on('data', c => { size += c.length; if (size > limit) tooLarge = true; else chunks.push(c); });
+    req.on('end', () => tooLarge ? reject(Object.assign(new Error('too large'), { code: 'TOO_LARGE' })) : resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
+}
+
+const feedbackRates = new Map();
+function feedbackWithinRate(ip) {
+  const now = Date.now();
+  const rows = (feedbackRates.get(ip) || []).filter(at => now - at < 24 * 60 * 60 * 1000);
+  if (rows.filter(at => now - at < 60 * 60 * 1000).length >= 10 || rows.length >= 50) { feedbackRates.set(ip, rows); return false; }
+  rows.push(now); feedbackRates.set(ip, rows); return true;
+}
+
+function feedbackCors(req, res) {
+  const origin = req.headers.origin;
+  if (typeof origin !== 'string' || !/^chrome-extension:\/\/[a-p]{32}$/.test(origin)) return false;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  return true;
 }
 
 const httpServer = http.createServer(async (req, res) => {
@@ -329,6 +349,30 @@ const httpServer = http.createServer(async (req, res) => {
     const admitted = neighbors.reduce((c, n) => c + (n.rooms || []).filter(r => roomKey(n, r.slug)).length, 0);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({ ok: true, service: 'seed-door', version: VERSION, neighbors: neighbors.filter(n => !n.disabled).length, admittedRooms: admitted }));
+    return;
+  }
+  if (url.pathname === '/feedback') {
+    if (!feedbackCors(req, res)) { res.writeHead(403, { 'Content-Type': 'application/json' }); res.end('{"error":"origin not allowed"}'); return; }
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+    if (req.method !== 'POST') { res.writeHead(405, { 'Content-Type': 'application/json', Allow: 'POST, OPTIONS' }); res.end('{"error":"method not allowed"}'); return; }
+    if (String(req.headers['content-type'] || '').split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
+      res.writeHead(415, { 'Content-Type': 'application/json' }); res.end('{"error":"content type must be application/json"}'); return;
+    }
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').map(value => value.trim()).filter(Boolean);
+    const ip = forwarded.at(-1) || req.socket.remoteAddress || 'unknown';
+    if (!feedbackWithinRate(ip)) { res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '3600' }); res.end('{"error":"too many requests"}'); return; }
+    let body;
+    try { body = JSON.parse(await readBody(req, 64 * 1024)); }
+    catch (error) {
+      const status = error.code === 'TOO_LARGE' ? 413 : 400;
+      res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: status === 413 ? 'body too large' : 'invalid json' })); return;
+    }
+    const error = feedbackError(body);
+    if (error) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error })); return; }
+    ensureHome(HOME);
+    fs.appendFileSync(FEEDBACK_FILE, JSON.stringify({ serverTimestamp: new Date().toISOString(), ...body }) + '\n', { mode: 0o600 });
+    fs.chmodSync(FEEDBACK_FILE, 0o600);
+    res.writeHead(201, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end('{"ok":true}');
     return;
   }
   const match = /^\/d\/([A-Za-z0-9_-]{32,128})\/mcp\/?$/.exec(url.pathname);
