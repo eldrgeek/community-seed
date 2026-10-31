@@ -271,3 +271,15 @@ test('no secret is ever written with open permissions', () => {
     assert.equal(fs.statSync(path.join(HOME, file)).mode & 0o077, 0, file);
   }
 });
+
+test('a malformed request path gets a 400 and the door stays up', async () => {
+  const net = await import('node:net');
+  for (const path of ['//', '/\\']) {
+    const reply = await new Promise((resolve, reject) => {
+      const socket = net.connect(doorPort, '127.0.0.1', () => socket.write(`GET ${path} HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n`));
+      let data = ''; socket.on('data', chunk => { data += chunk; }); socket.on('end', () => resolve(data)); socket.on('error', reject);
+    });
+    assert.match(reply, /^HTTP\/1\.1 400/);
+  }
+  assert.equal((await (await fetch(`http://127.0.0.1:${doorPort}/healthz`)).json()).ok, true);
+});

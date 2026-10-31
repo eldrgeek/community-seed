@@ -357,7 +357,9 @@ function feedbackCors(req, res) {
 }
 
 const httpServer = http.createServer(async (req, res) => {
-  const url = new URL(req.url || '/', 'http://door.local');
+  let url;
+  try { url = new URL(req.url || '/', 'http://door.local'); }
+  catch { res.writeHead(400).end(); return; }
   if (req.method === 'GET' && (url.pathname === '/healthz' || url.pathname === '/')) {
     const neighbors = loadNeighbors();
     const admitted = neighbors.reduce((c, n) => c + (n.rooms || []).filter(r => roomKey(n, r.slug)).length, 0);

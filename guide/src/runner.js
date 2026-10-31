@@ -53,8 +53,12 @@
     root.querySelector('.feedbackLink').onclick = trusted(event => { event.preventDefault(); status.textContent = ''; feedback.hidden = false; updatePreview(); note.focus(); });
     root.querySelector('.cancel').onclick = trusted(() => { feedback.hidden = true; });
     note.oninput = updatePreview;
+    let sendPressed = false;
+    root.querySelector('.send').onclick = event => { sendPressed = event.isTrusted; };
     root.querySelector('.feedbackForm').onsubmit = trusted(async event => {
       event.preventDefault();
+      if (!sendPressed) return;
+      sendPressed = false;
       if (!note.reportValidity()) return;
       const send = root.querySelector('.send'); send.disabled = true; status.textContent = 'Sending…';
       const outgoing = payload(); preview.textContent = JSON.stringify(outgoing, null, 2);
