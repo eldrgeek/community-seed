@@ -54,7 +54,7 @@
     root.querySelector('.cancel').onclick = trusted(() => { feedback.hidden = true; });
     note.oninput = updatePreview;
     let sendPressed = false;
-    root.querySelector('.send').onclick = event => { sendPressed = event.isTrusted; };
+    root.querySelector('.send').onclick = event => { sendPressed = event.isTrusted; setTimeout(() => { sendPressed = false; }, 0); };
     root.querySelector('.feedbackForm').onsubmit = trusted(async event => {
       event.preventDefault();
       if (!sendPressed) return;
