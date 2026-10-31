@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign, webcrypto } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { assertStepSite, substitute, validateGuide, verifyGuideBytes } from '../src/guide-core.js';
+import { assertStepSite, checkSaved, pickTarget, substitute, validateGuide, verifyGuideBytes } from '../src/guide-core.js';
 
 const basic = {
   id: 'test-guide', title: 'Test', allowedSites: ['https://example.test'],
@@ -86,4 +86,25 @@ test('the committed guides match their committed signatures', async () => {
     await verifyGuideBytes(bytes, signature, publicKey, webcrypto);
     validateGuide(JSON.parse(new TextDecoder().decode(bytes)));
   }
+});
+
+test('the saved check matches, waits, and reports a difference', () => {
+  assert.equal(checkSaved('the rule ', 'the rule'), 'match');
+  assert.equal(checkSaved(null, 'the rule'), 'waiting');
+  assert.equal(checkSaved('', 'the rule'), 'different');
+  assert.equal(checkSaved('another rule', 'the rule'), 'different');
+});
+
+test('a check must loop back to an earlier step', () => {
+  const steps = [{ type: 'done', instruction: 'A.' }, { type: 'wait', instruction: 'B.', verify: { selector: 'textarea', equals: 'x', failMessage: 'No.', retryStep: 1 } }];
+  assert.throws(() => validateGuide({ ...basic, steps }), /invalid check/);
+  steps[1].verify.retryStep = 0;
+  assert.ok(validateGuide({ ...basic, steps }));
+});
+
+test('target text picks the named item, and never a neighbouring one', () => {
+  const items = [{ innerText: 'Pin project' }, { innerText: 'Project settings' }, { innerText: 'Delete project' }];
+  assert.equal(pickTarget(items, 'Project settings'), items[1]);
+  assert.equal(pickTarget(items, 'Missing'), null);
+  assert.equal(pickTarget(items), items[0]);
 });

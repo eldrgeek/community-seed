@@ -11,7 +11,7 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await cp(resolve(root, 'src'), output, { recursive: true });
 const coreSource = await readFile(resolve(root, 'src/guide-core.js'), 'utf8');
-await writeFile(resolve(output, 'guide-runtime-core.js'), `(function(){\n${coreSource.replaceAll('export ', '')}\nglobalThis.SOMAGuideCore = { assertStepSite };\n})();\n`);
+await writeFile(resolve(output, 'guide-runtime-core.js'), `(function(){\n${coreSource.replaceAll('export ', '')}\nglobalThis.SOMAGuideCore = { assertStepSite, checkSaved, pickTarget };\n})();\n`);
 const startPath = resolve(output, 'start.js');
 const start = (await readFile(startPath, 'utf8')).replace('__GUIDE_PUBLIC_KEY__', publicKey).replace('__GUIDE_BASE_URL__', baseUrl);
 await writeFile(startPath, start);

@@ -1,6 +1,6 @@
 export const MAX_COPY_LENGTH = 4000;
 
-const STEP_KEYS = new Set(['type', 'instruction', 'target', 'url', 'copy', 'doneWhen']);
+const STEP_KEYS = new Set(['type', 'instruction', 'target', 'url', 'copy', 'doneWhen', 'verify', 'targetText']);
 const DONE_KEYS = new Set(['selectorAppears', 'selectorGone', 'textAppears', 'urlIncludes']);
 const TYPES = new Set(['open', 'point', 'copy', 'wait', 'done']);
 
@@ -27,6 +27,7 @@ export function validateGuide(guide) {
     if (!TYPES.has(step.type)) throw new Error(`Unsupported step type: ${step.type}`);
     if (typeof step.instruction !== 'string' || !step.instruction.trim()) throw new Error(`Step ${index + 1} has no instruction.`);
     if (step.target !== undefined && typeof step.target !== 'string') throw new Error(`Step ${index + 1} has an invalid target.`);
+    if (step.targetText !== undefined && (typeof step.targetText !== 'string' || !step.target)) throw new Error(`Step ${index + 1} has invalid target text.`);
     if (step.url !== undefined && !siteOrigin(step.url)) throw new Error(`Step ${index + 1} has an invalid URL.`);
     if (step.type === 'open' && !guide.allowedSites.includes(siteOrigin(step.url))) throw new Error(`Step ${index + 1} opens a site that is not allowed.`);
     if (step.copy !== undefined && typeof step.copy !== 'string') throw new Error(`Step ${index + 1} has invalid copy text.`);
@@ -37,6 +38,12 @@ export function validateGuide(guide) {
       for (const [key, value] of Object.entries(step.doneWhen)) {
         if (!DONE_KEYS.has(key) || typeof value !== 'string' || !value) throw new Error(`Step ${index + 1} has an invalid done condition.`);
       }
+    }
+    if (step.verify !== undefined) {
+      const { selector, equals, retryStep, failMessage } = step.verify || {};
+      if (typeof selector !== 'string' || !selector || typeof equals !== 'string' || !equals || typeof failMessage !== 'string' || !failMessage
+        || !Number.isInteger(retryStep) || retryStep < 0 || retryStep >= index) throw new Error(`Step ${index + 1} has an invalid check.`);
+      if (equals.length > MAX_COPY_LENGTH) throw new Error(`Step ${index + 1} check text is over 4000 characters.`);
     }
   }
   return guide;
@@ -50,6 +57,17 @@ export function substitute(value, params) {
   if (Array.isArray(value)) return value.map(item => substitute(item, params));
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, substitute(item, params)]));
   return value;
+}
+
+export function pickTarget(elements, text) {
+  const list = Array.from(elements);
+  if (!text) return list[0] || null;
+  return list.find(element => (element.innerText || element.textContent || '').trim() === text) || null;
+}
+
+export function checkSaved(value, equals) {
+  if (value === null || value === undefined) return 'waiting';
+  return value.trim() === equals.trim() ? 'match' : 'different';
 }
 
 export function assertStepSite(step, allowedSites, currentUrl) {
