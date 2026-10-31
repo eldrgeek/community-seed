@@ -1,0 +1,12 @@
+{
+  "name": "soma-guide",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "sign": "node scripts/sign-guide.mjs",
+    "pretest": "npm run build",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
+  }
+}
