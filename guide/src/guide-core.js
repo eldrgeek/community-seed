@@ -82,7 +82,11 @@ export function pickTarget(elements, text) {
 
 export function checkSaved(value, equals) {
   if (value === null || value === undefined) return 'waiting';
-  return value.trim() === equals.trim() ? 'match' : 'different';
+  return value.includes(equals.trim()) ? 'match' : 'different';
+}
+
+export function isFeedbackPageSender(sender, runtime) {
+  return sender.id === runtime.id && !!sender.url?.startsWith(runtime.getURL('feedback.html'));
 }
 
 export function isAllowedStepTransition(guide, currentIndex, nextIndex) {

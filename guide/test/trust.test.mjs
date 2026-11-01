@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign, webcrypto } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { assertStepSite, buildFeedback, checkSaved, isAllowedStepTransition, pickTarget, structureSnapshot, substitute, validateGuide, verifyGuideBytes } from '../src/guide-core.js';
+import { assertStepSite, buildFeedback, checkSaved, isAllowedStepTransition, isFeedbackPageSender, pickTarget, structureSnapshot, substitute, validateGuide, verifyGuideBytes } from '../src/guide-core.js';
 
 const basic = {
   id: 'test-guide', title: 'Test', allowedSites: ['https://example.test'],
@@ -120,15 +120,26 @@ test('the structure snapshot keeps controls but no page text, field values, or m
 test('the background posts feedback only to its fixed build constant', async () => {
   const background = await readFile(resolve(import.meta.dirname, '../dist/background.js'), 'utf8');
   assert.match(background, /const FEEDBACK_URL = 'https:\/\/vps\.mike-wolf\.com\/seed-door\/feedback'/);
+  assert.match(background, /chrome\.storage\.session\.get\(FEEDBACK_PAYLOAD_KEY\)/);
   assert.match(background, /fetch\(FEEDBACK_URL, \{ method: 'POST'/);
+  assert.match(background, /chrome\.storage\.session\.remove\(FEEDBACK_PAYLOAD_KEY\)/);
   assert.equal([...background.matchAll(/method: 'POST'/g)].length, 1);
 });
 
-test('the built start, background, and runner wire in both trust checks', async () => {
+test('guide-feedback-send is refused unless it comes from this extension feedback page', () => {
+  const runtime = { id: 'ours', getURL: path => `chrome-extension://ours/${path}` };
+  assert.equal(isFeedbackPageSender({ id: 'ours', url: 'chrome-extension://ours/feedback.html' }, runtime), true);
+  assert.equal(isFeedbackPageSender({ id: 'ours', url: 'chrome-extension://ours/start.html' }, runtime), false);
+  assert.equal(isFeedbackPageSender({ id: 'other', url: 'chrome-extension://ours/feedback.html' }, runtime), false);
+  assert.equal(isFeedbackPageSender({ id: 'ours', url: 'https://example.test/feedback.html' }, runtime), false);
+});
+
+test('the built start, background, runner, and feedback popup wire in trust checks', async () => {
   const dist = resolve(import.meta.dirname, '../dist');
   const start = await readFile(resolve(dist, 'start.js'), 'utf8');
   const background = await readFile(resolve(dist, 'background.js'), 'utf8');
   const runner = await readFile(resolve(dist, 'runner.js'), 'utf8');
+  const feedback = await readFile(resolve(dist, 'feedback.js'), 'utf8');
   assert.match(start, /await verifyGuideBytes\(/);
   assert.match(background, /await verifyGuideBytes\(/);
   assert.match(background, /assertStepSite\(/);
@@ -136,9 +147,17 @@ test('the built start, background, and runner wire in both trust checks', async 
   assert.match(background, /isAllowedStepTransition/);
   assert.match(background, /chrome\.storage\.local/);
   assert.match(background, /onStartup\.addListener/);
+  assert.match(background, /guide-feedback-open/);
+  assert.match(background, /guide-feedback-send/);
+  assert.match(background, /isFeedbackPageSender/);
+  assert.match(background, /chrome\.windows\.create\(\{ url: 'feedback\.html', type: 'popup', width: 560, height: 680 \}\)/);
   assert.match(runner, /SOMAGuideCore\.assertStepSite\(/);
   assert.match(runner, /attachShadow\(\{ mode: 'closed' \}\)/);
   assert.match(runner, /event\.isTrusted/);
+  assert.match(runner, /guide-feedback-open/);
+  assert.doesNotMatch(runner, /feedbackForm|feedbackNote|sendPressed|guide-feedback'/);
+  assert.match(feedback, /guide-feedback-send/);
+  assert.match(feedback, /window\.close\(\)/);
 });
 
 test('committed guides are valid and unchanged guides match their signatures', async () => {
@@ -163,6 +182,7 @@ test('the saved check matches, waits, and reports a difference', () => {
   assert.equal(checkSaved('the rule ', 'the rule'), 'match');
   assert.equal(checkSaved(null, 'the rule'), 'waiting');
   assert.equal(checkSaved('', 'the rule'), 'different');
+  assert.equal(checkSaved('older text\nthe rule', 'the rule'), 'match');
   assert.equal(checkSaved('another rule', 'the rule'), 'different');
 });
 

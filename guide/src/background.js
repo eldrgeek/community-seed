@@ -1,8 +1,9 @@
-import { assertStepSite, isAllowedStepTransition, substitute, validateGuide, verifyGuideBytes } from './guide-core.js';
+import { assertStepSite, isAllowedStepTransition, isFeedbackPageSender, substitute, validateGuide, verifyGuideBytes } from './guide-core.js';
 
 const PUBLIC_KEY = '__GUIDE_PUBLIC_KEY__';
 const FEEDBACK_URL = '__FEEDBACK_URL__';
 const REMOVABLE_ORIGINS_KEY = 'guide-removable-origins';
+const FEEDBACK_PAYLOAD_KEY = 'guide-feedback-payload';
 
 const sessionKey = tabId => `guide-tab-${tabId}`;
 const getSession = async tabId => (await chrome.storage.session.get(sessionKey(tabId)))[sessionKey(tabId)];
@@ -74,14 +75,35 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     })().catch(error => respond({ error: error.message }));
     return true;
   }
-  if (message.type === 'guide-feedback') {
+  if (message.type === 'guide-feedback-open') {
     if (!sender.tab?.id || sender.id !== chrome.runtime.id || sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`)) {
       respond({ error: 'Feedback is accepted only from this extension on a guide page.' });
       return false;
     }
     (async () => {
-      const response = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(message.payload) });
+      await chrome.storage.session.set({ [FEEDBACK_PAYLOAD_KEY]: message.payload });
+      await chrome.windows.create({ url: 'feedback.html', type: 'popup', width: 560, height: 680 });
+      respond({ ok: true });
+    })().catch(error => respond({ error: error.message }));
+    return true;
+  }
+  if (message.type === 'guide-feedback-send') {
+    if (!isFeedbackPageSender(sender, chrome.runtime)) {
+      respond({ error: 'Feedback is accepted only from this extension feedback page.' });
+      return false;
+    }
+    if (typeof message.note !== 'string' || message.note.length < 1 || message.note.length > 2000) {
+      respond({ error: 'Feedback note must be 1 to 2000 characters.' });
+      return false;
+    }
+    (async () => {
+      const stored = await chrome.storage.session.get(FEEDBACK_PAYLOAD_KEY);
+      const payload = stored[FEEDBACK_PAYLOAD_KEY];
+      if (!payload) throw new Error('There is no feedback payload to send.');
+      payload.note = message.note;
+      const response = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!response.ok) throw new Error(`Feedback was not sent (HTTP ${response.status}).`);
+      await chrome.storage.session.remove(FEEDBACK_PAYLOAD_KEY);
       respond({ ok: true });
     })().catch(error => respond({ error: error.message }));
     return true;
