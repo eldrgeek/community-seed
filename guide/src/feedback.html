@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Something's wrong</title>
+  <style>
+    :root{font:16px/1.45 system-ui;color:#17211b;background:#f5f2e9}body{margin:0;padding:24px}main{max-width:510px;margin:auto;background:#fff;border:2px solid #245b3b;border-radius:12px;padding:20px;box-sizing:border-box}h1{font-size:24px;margin-top:0}label{display:block;font-weight:600}textarea{box-sizing:border-box;width:100%;min-height:120px;margin-top:6px;padding:8px;font:inherit}pre{white-space:pre-wrap;overflow:auto;max-height:270px;background:#f5f2e9;border-radius:6px;padding:10px;font-size:12px}.buttons{display:flex;gap:8px;margin-top:14px}button{font:inherit;border:1px solid #245b3b;border-radius:6px;padding:8px 12px;background:#fff;color:#245b3b}button.primary{background:#245b3b;color:#fff}button:disabled{opacity:.6}.status{white-space:pre-wrap;color:#7b241c}.status.success{color:#245b3b}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Something's wrong</h1>
+    <form>
+      <label for="note">What happened?</label>
+      <textarea id="note" required maxlength="2000"></textarea>
+      <p>Exactly this will be sent:</p>
+      <pre id="preview" aria-live="polite"></pre>
+      <p id="status" class="status" role="status"></p>
+      <div class="buttons"><button class="primary" type="submit">Send</button><button id="cancel" type="button">Cancel</button></div>
+    </form>
+  </main>
+  <script src="feedback.js"></script>
+</body>
+</html>

@@ -13,6 +13,7 @@
 //   door-admin.mjs set-key --id test --room abcd1234 --key-file FILE   (tests: use a key made elsewhere)
 //   door-admin.mjs forget-key --id eric --room 9b72a5rp
 //   door-admin.mjs status
+//   door-admin.mjs feedback --since <ISO date> [--guide id]
 //
 // Written 2026-09-28 by Claude Opus 5.5 (Claude Code, session 928a543b) for Mike Wolf. Bead es-h13.
 import fs from 'node:fs';
@@ -65,6 +66,19 @@ async function main() {
   const neighbors = loadNeighbors();
   if (!cmd || a.help) {
     process.stdout.write(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').filter(l => l.startsWith('//')).slice(0, 16).join('\n') + '\n');
+    return;
+  }
+  if (cmd === 'feedback') {
+    if (typeof a.since !== 'string' || !/^\d{4}-\d\d-\d\d(?:T.*)?$/.test(a.since) || Number.isNaN(Date.parse(a.since))) die('--since must be an ISO date');
+    if (a.guide !== undefined && (typeof a.guide !== 'string' || !/^[a-z0-9-]+$/.test(a.guide))) die('--guide must be a guide id');
+    const since = Date.parse(a.since);
+    let lines = [];
+    try { lines = fs.readFileSync(path.join(HOME, 'guide-feedback.jsonl'), 'utf8').split('\n').filter(Boolean); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    for (const line of lines) {
+      let row;
+      try { row = JSON.parse(line); } catch { continue; }
+      if (Date.parse(row.serverTimestamp) >= since && (a.guide === undefined || row.guideId === a.guide)) console.log(line);
+    }
     return;
   }
   if (cmd === 'add') {

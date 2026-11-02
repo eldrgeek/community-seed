@@ -58,6 +58,12 @@ const call = async (client, name, args = {}) => {
   const r = await client.callTool({ name, arguments: args });
   return { text: r.content.map(c => c.text).join('\n'), isError: !!r.isError };
 };
+const feedback = (overrides = {}) => ({ guideId: 'test-guide', guideTitle: 'Test guide', stepIndex: 1,
+  url: 'https://example.test', userAgent: 'Test browser', extensionVersion: '0.1.0', targetMatched: true,
+  note: 'The control is missing.', snapshot: { tag: 'section', role: 'dialog', children: [{ tag: 'button', type: 'button', label: 'Continue' }] }, ...overrides });
+const postFeedback = (body, ip, headers = {}) => fetch(`http://127.0.0.1:${doorPort}/feedback`, { method: 'POST',
+  headers: { Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop', 'Content-Type': 'application/json', 'X-Forwarded-For': ip, ...headers },
+  body: typeof body === 'string' ? body : JSON.stringify(body) });
 
 before(async () => {
   await new Promise(r => fake.listen(0, '127.0.0.1', r));
@@ -82,6 +88,75 @@ test('an unknown door token gets a plain 404 and reveals nothing', async () => {
   assert.equal(r.status, 404);
   const health = await (await fetch(`http://127.0.0.1:${doorPort}/healthz`)).json();
   assert.deepEqual([health.ok, health.neighbors, health.admittedRooms], [true, 1, 0]);
+});
+
+test('valid guide feedback is accepted and stored without open permissions', async () => {
+  const r = await postFeedback(feedback(), '192.0.2.1');
+  assert.equal(r.status, 201);
+  const file = path.join(HOME, 'guide-feedback.jsonl');
+  const row = JSON.parse(fs.readFileSync(file, 'utf8').trim());
+  assert.equal(row.guideId, 'test-guide');
+  assert.match(row.serverTimestamp, /^\d{4}-\d\d-/);
+  assert.equal(fs.statSync(file).mode & 0o077, 0);
+});
+
+test('guide feedback rejects an unknown key', async () => {
+  const r = await postFeedback(feedback({ extra: true }), '192.0.2.2');
+  assert.equal(r.status, 400);
+});
+
+test('guide feedback rejects a body beyond 64 KiB', async () => {
+  const r = await postFeedback(JSON.stringify({ ...feedback(), note: 'x'.repeat(70 * 1024) }), '192.0.2.3');
+  assert.equal(r.status, 413);
+});
+
+test('guide feedback rejects bad JSON', async () => {
+  const r = await postFeedback('{bad', '192.0.2.4');
+  assert.equal(r.status, 400);
+});
+
+test('guide feedback limits one client to ten submissions per hour', async () => {
+  for (let i = 0; i < 10; i++) assert.equal((await postFeedback(feedback({ note: `Report ${i}` }), '192.0.2.5')).status, 201);
+  assert.equal((await postFeedback(feedback(), '192.0.2.5')).status, 429);
+});
+
+test('guide feedback refuses a file over 50 MB with 507 and the door stays available', async () => {
+  const file = path.join(HOME, 'guide-feedback.jsonl');
+  const saved = fs.readFileSync(file);
+  fs.truncateSync(file, 50 * 1024 * 1024 + 1);
+  try {
+    assert.equal((await postFeedback(feedback(), '192.0.2.6')).status, 507);
+    assert.equal((await (await fetch(`http://127.0.0.1:${doorPort}/healthz`)).json()).ok, true);
+  } finally { fs.writeFileSync(file, saved, { mode: 0o600 }); }
+});
+
+test('a feedback append failure returns 503 without taking down MCP routes', async () => {
+  const file = path.join(HOME, 'guide-feedback.jsonl');
+  const backup = `${file}.backup`;
+  fs.renameSync(file, backup); fs.mkdirSync(file);
+  try {
+    assert.equal((await postFeedback(feedback(), '192.0.2.7')).status, 503);
+    const client = await connect();
+    assert.ok((await client.listTools()).tools.length > 0);
+    await client.close();
+  } finally { fs.rmdirSync(file); fs.renameSync(backup, file); }
+});
+
+test('guide feedback has a global cap of 500 accepted reports per hour', async () => {
+  let accepted = 0;
+  for (let i = 0; i < 500; i++) {
+    const response = await postFeedback(feedback({ note: `Global report ${i}` }), `198.51.${Math.floor(i / 250)}.${i % 250}`);
+    if (response.status === 429) break;
+    assert.equal(response.status, 201); accepted += 1;
+  }
+  assert.ok(accepted > 0 && accepted < 500, 'earlier accepted reports count toward the 500-report cap');
+  assert.equal((await postFeedback(feedback(), '203.0.113.250')).status, 429);
+});
+
+test('expired feedback rate-limit entries are evicted', () => {
+  const now = Date.now() + 25 * 60 * 60 * 1000;
+  serverMod.feedbackWithinRate('203.0.113.251', now);
+  assert.equal(serverMod.feedbackRateEntryCount(), 0);
 });
 
 test('the tools are listed, reads are marked read-only, writes are not', async () => {
@@ -195,4 +270,16 @@ test('no secret is ever written with open permissions', () => {
   for (const file of ['neighbors.json', 'keys/eric-room0001.json', 'joins/eric-room0001.json']) {
     assert.equal(fs.statSync(path.join(HOME, file)).mode & 0o077, 0, file);
   }
+});
+
+test('a malformed request path gets a 400 and the door stays up', async () => {
+  const net = await import('node:net');
+  for (const path of ['//', '/\\']) {
+    const reply = await new Promise((resolve, reject) => {
+      const socket = net.connect(doorPort, '127.0.0.1', () => socket.write(`GET ${path} HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n`));
+      let data = ''; socket.on('data', chunk => { data += chunk; }); socket.on('end', () => resolve(data)); socket.on('error', reject);
+    });
+    assert.match(reply, /^HTTP\/1\.1 400/);
+  }
+  assert.equal((await (await fetch(`http://127.0.0.1:${doorPort}/healthz`)).json()).ok, true);
 });
