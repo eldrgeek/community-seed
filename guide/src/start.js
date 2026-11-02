@@ -32,6 +32,10 @@ form.addEventListener('submit', async event => {
     } finally {
       if (!sourceWasGranted) await chrome.permissions.remove({ origins: [sourceOrigin] });
     }
+    let looksLikeGuide = false;
+    try { const parsed = JSON.parse(new TextDecoder().decode(bytes)); looksLikeGuide = !!(parsed && parsed.id && Array.isArray(parsed.steps)); } catch {}
+    if (!looksLikeGuide) throw new Error("That's a web page, not a guide address. Use the guide link you were sent.");
+    if (!signature) throw new Error('This guide has no signature, so it cannot be trusted.');
     await verifyGuideBytes(bytes, signature, PUBLIC_KEY);
     const raw = validateGuide(JSON.parse(new TextDecoder().decode(bytes)));
     const params = {};
@@ -68,3 +72,5 @@ document.querySelector('#start').addEventListener('click', async () => {
   if (result?.error && removableOrigins.length) await chrome.permissions.remove({ origins: removableOrigins });
   status.textContent = result?.error || 'Guide started.';
 });
+
+document.querySelector('#version').textContent = `Version ${chrome.runtime.getManifest().version}`;
