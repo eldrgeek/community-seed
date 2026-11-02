@@ -17,6 +17,7 @@
   }
 
   chrome.runtime.onMessage.addListener(message => {
+    if (message.type === 'end-guide') { cleanup(); cleanup = () => {}; return; }
     if (message.type !== 'show-guide') return;
     cleanup();
     const { guide, signedTitle, index } = message.session;

@@ -117,7 +117,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       if (message.skipped && message.skippedIndex !== session.index) return respond({ error: 'Invalid skipped step.' });
       session.index = message.index;
       if (message.skipped) session.skipped.push(message.skippedIndex);
-      if (session.index >= session.guide.steps.length) { await removeSession(tabId); await releaseGuidePermissions(session, tabId); }
+      if (session.index >= session.guide.steps.length) { await chrome.tabs.sendMessage(tabId, { type: 'end-guide' }).catch(() => {}); await removeSession(tabId); await releaseGuidePermissions(session, tabId); }
       else { await setSession(tabId, session); await placeRunner(tabId); }
       respond({ ok: true });
     } else if (message.type === 'guide-navigate') {
