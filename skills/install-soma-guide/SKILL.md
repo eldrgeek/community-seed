@@ -7,6 +7,8 @@ description: How an AI walks its person through installing SOMA Guide, the Chrom
 
 # Install SOMA Guide
 
+> **Held, unsigned (2026-11-03).** Not served to AIs yet. Locke's review: the steps teach loading an extension from a zip sent by whoever invited the person, which is exactly what an attacker would send. Before signing, this skill must name one SOMA-controlled download (or a Chrome Web Store listing) and the expected extension ID to check in `chrome://extensions`, and must never accept a zip from an inviter.
+
 SOMA Guide is a Chrome extension. It shows a tip box on a web page that points at the next thing to click. It never clicks, types or submits for anyone. The person does every step.
 
 You do not install it. You talk your person through it, one step at a time, and wait for them to say each step is done.
