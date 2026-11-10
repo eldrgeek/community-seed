@@ -3,7 +3,7 @@ export const WAKE_PATH_PREFIXES = Object.freeze(['/soma-rooms/wake/', '/soma-roo
 export const CHATGPT_ORIGIN = 'https://chatgpt.com/*';
 export const FIXED_WAKE_LINE = 'Check the SOMA room and reply to anything addressed to you.';
 export const WAKE_COALESCE_MS = 20_000;
-export const WAKE_DAILY_CAP = 300;
+export const WAKE_DAILY_CAP = 100;
 
 export const WAKE_SELECTORS = Object.freeze({
   stopButton: '[data-testid="stop-button"]',
@@ -27,6 +27,17 @@ export function validateChatUrl(value) {
   if (!/^https:\/\/chatgpt\.com\/(?:c|g\/[^/]+\/c)\/[A-Za-z0-9-]+$/.test(value)) throw new Error('Enter a specific ChatGPT chat URL.');
   return value;
 }
+
+export function chatPageUrl(value) {
+  try { const url = new URL(value); return `${url.origin}${url.pathname}`; } catch { return null; }
+}
+
+export function mayOpenWakeTab(lastOpenedAt, now) {
+  return !Number.isFinite(lastOpenedAt) || now - lastOpenedAt >= 10 * 60_000;
+}
+
+export function wokeFrame(seq) { return { type: 'woke', seq }; }
+export function awayFrame(seq, why) { return { type: 'away', seq, why }; }
 
 export function validateServerFrame(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.type !== 'string') return null;

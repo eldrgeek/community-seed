@@ -3,6 +3,7 @@ import { CHATGPT_ORIGIN, validateChatUrl, validateWakeLink } from './wake-core.j
 const SETTINGS_KEY = 'wake-settings';
 const STATUS_KEY = 'wake-status';
 const LOG_KEY = 'wake-log';
+const WAKE_PERMISSION_KEY = 'wake-chatgpt-permission';
 const form = document.querySelector('#form');
 const wakeLink = document.querySelector('#wake-link');
 const chatUrl = document.querySelector('#chat-url');
@@ -30,7 +31,7 @@ form.addEventListener('submit', async event => {
     const saved = { enabled: true, wakeLink: validateWakeLink(wakeLink.value.trim()), chatUrl: validateChatUrl(chatUrl.value.trim()) };
     const granted = await chrome.permissions.request({ origins: [CHATGPT_ORIGIN] });
     if (!granted) throw new Error('ChatGPT access was not granted, so Wake my AI stayed off.');
-    await chrome.storage.local.set({ [SETTINGS_KEY]: saved, [STATUS_KEY]: { state: 'reconnecting', updatedAt: Date.now(), wakesToday: 0 } });
+    await chrome.storage.local.set({ [SETTINGS_KEY]: saved, [WAKE_PERMISSION_KEY]: true, [STATUS_KEY]: { state: 'reconnecting', updatedAt: Date.now(), wakesToday: 0 } });
     await chrome.runtime.sendMessage({ type: 'wake-settings-changed' });
     await render();
   } catch (error) { status.textContent = error.message; }
@@ -42,6 +43,8 @@ document.querySelector('#turn-off').addEventListener('click', async () => {
 });
 
 document.querySelector('#use-tab').addEventListener('click', async () => {
+  const granted = await chrome.permissions.request({ origins: [CHATGPT_ORIGIN] });
+  if (!granted) { status.textContent = 'ChatGPT access was not granted.'; return; }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   try { chatUrl.value = validateChatUrl(tab?.url || ''); status.textContent = 'Chat URL filled in. Wake my AI is still off.'; }
   catch { status.textContent = 'The active tab is not a specific ChatGPT chat.'; }

@@ -1,0 +1,1 @@
+{"ready":{"type":"ready","room":"abc123defg","roomName":"Wake room","ai":"Izzy","now":1762000000000},"ping":{"type":"ping"},"addressed":{"type":"addressed","room":"abc123defg","seq":42,"at":1762000000000},"woke":{"type":"woke","seq":42},"away":{"type":"away","seq":42,"why":"busy"}}

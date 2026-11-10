@@ -4,7 +4,7 @@
   "name": "SOMA Guide",
   "version": "0.1.0",
   "description": "Plain, signed, human-operated walkthroughs.",
-  "permissions": ["storage", "scripting", "alarms", "activeTab"],
+  "permissions": ["storage", "scripting", "alarms"],
   "host_permissions": ["https://vps.mike-wolf.com/*"],
   "optional_host_permissions": ["https://*/*", "https://chatgpt.com/*"],
   "background": { "service_worker": "background.js", "type": "module" },

@@ -1,4 +1,4 @@
-import { CHATGPT_ORIGIN, WAKE_SELECTORS, dayKey, receiveAddressed, takePending, validateChatUrl, validateServerFrame, validateWakeLink } from './wake-core.js';
+import { CHATGPT_ORIGIN, WAKE_SELECTORS, awayFrame, chatPageUrl, dayKey, mayOpenWakeTab, receiveAddressed, takePending, validateChatUrl, validateServerFrame, validateWakeLink, wokeFrame } from './wake-core.js';
 import { wakeChatGPT } from './wake-inject.js';
 
 const SETTINGS_KEY = 'wake-settings';
@@ -6,6 +6,9 @@ const STATUS_KEY = 'wake-status';
 const LOG_KEY = 'wake-log';
 const LIMIT_KEY = 'wake-limit';
 const ALARM = 'wake-reconnect';
+const WAKE_PERMISSION_KEY = 'wake-chatgpt-permission';
+const GUIDE_REMOVABLE_ORIGINS_KEY = 'guide-removable-origins';
+const LAST_TAB_OPENED_KEY = 'wake-last-tab-opened';
 let socket = null;
 let reconnectTimer = null;
 let pendingTimer = null;
@@ -46,12 +49,27 @@ async function waitForTab(tabId) {
 
 async function findOrOpenTab(chatUrl) {
   const tabs = await chrome.tabs.query({ url: [CHATGPT_ORIGIN] });
-  const found = tabs.find(tab => tab.url === chatUrl);
+  const boundUrl = chatPageUrl(chatUrl);
+  const found = tabs.find(tab => chatPageUrl(tab.url) === boundUrl);
   if (found) return { tab: found, loaded: found.status === 'complete' || await waitForTab(found.id) };
+  const stored = await chrome.storage.local.get(LAST_TAB_OPENED_KEY);
+  if (!mayOpenWakeTab(stored[LAST_TAB_OPENED_KEY], Date.now())) return { tab: null, loaded: false };
   try {
     const tab = await chrome.tabs.create({ url: chatUrl, active: false });
+    await chrome.storage.local.set({ [LAST_TAB_OPENED_KEY]: Date.now() });
     return { tab, loaded: await waitForTab(tab.id) };
   } catch { return { tab: null, loaded: false }; }
+}
+
+async function waitForComposer(tabId) {
+  for (let waited = 0; waited <= 8_000; waited += 250) {
+    try {
+      const [{ result }] = await chrome.scripting.executeScript({ target: { tabId }, func: selector => !!document.querySelector(selector), args: [WAKE_SELECTORS.composer] });
+      if (result) return true;
+    } catch { return false; }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  return false;
 }
 
 async function performWake(frame) {
@@ -64,12 +82,13 @@ async function performWake(frame) {
   let latencyMs;
   if (tab && loaded) {
     try {
-      const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: wakeChatGPT, args: [WAKE_SELECTORS] });
+      if (!(await waitForComposer(tab.id))) throw new Error('not_signed_in');
+      const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: wakeChatGPT, args: [WAKE_SELECTORS, chatPageUrl(chatUrl)] });
       outcome = result?.outcome || 'busy';
       if (outcome === 'woke') latencyMs = result.clickedAt - frame.at;
-    } catch { outcome = 'tab_closed'; }
+    } catch (error) { outcome = error.message === 'not_signed_in' ? 'not_signed_in' : 'tab_closed'; }
   }
-  send(outcome === 'woke' ? { type: 'woke', seq: frame.seq } : { type: 'away', seq: frame.seq, why: outcome });
+  send(outcome === 'woke' ? wokeFrame(frame.seq) : awayFrame(frame.seq, outcome));
   await appendLog(frame.seq, outcome, latencyMs);
   await setStatus(socket?.readyState === WebSocket.OPEN ? 'connected' : 'reconnecting');
 }
@@ -133,7 +152,14 @@ async function disable(detail = '') {
   if (old && old.readyState < WebSocket.CLOSING) old.close();
   const config = await settings();
   await chrome.storage.local.set({ [SETTINGS_KEY]: { ...config, enabled: false } });
-  await chrome.permissions.remove({ origins: [CHATGPT_ORIGIN] });
+  await chrome.storage.local.set({ [WAKE_PERMISSION_KEY]: false });
+  const session = await chrome.storage.session.get(null);
+  const guideNeedsChatGPT = Object.values(session).some(value => value?.guide?.allowedSites?.includes('https://chatgpt.com'));
+  if (!guideNeedsChatGPT) {
+    await chrome.permissions.remove({ origins: [CHATGPT_ORIGIN] });
+    const local = await chrome.storage.local.get(GUIDE_REMOVABLE_ORIGINS_KEY);
+    await chrome.storage.local.set({ [GUIDE_REMOVABLE_ORIGINS_KEY]: (local[GUIDE_REMOVABLE_ORIGINS_KEY] || []).filter(origin => origin !== CHATGPT_ORIGIN) });
+  }
   await setStatus('off', detail);
 }
 

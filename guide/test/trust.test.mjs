@@ -73,9 +73,26 @@ test('guide code remains free of automation and Wake is a separate optional perm
     assert.equal(text.includes(forbidden), false, `bundle contains forbidden automation marker: ${forbidden}`);
   }
   const manifest = JSON.parse(await readFile(resolve(dist, 'manifest.json'), 'utf8'));
-  assert.deepEqual(manifest.permissions, ['storage', 'scripting', 'alarms', 'activeTab']);
+  assert.deepEqual(manifest.permissions, ['storage', 'scripting', 'alarms']);
   assert.deepEqual(manifest.host_permissions, ['https://vps.mike-wolf.com/*']);
   assert.deepEqual(manifest.optional_host_permissions, ['https://*/*', 'https://chatgpt.com/*']);
+});
+
+test('Wake requests ChatGPT before querying the active tab and permission cleanup respects both owners', async () => {
+  const src = resolve(import.meta.dirname, '../src');
+  const wake = await readFile(resolve(src, 'wake.js'), 'utf8');
+  const request = wake.indexOf("chrome.permissions.request({ origins: [CHATGPT_ORIGIN] })", wake.indexOf("#use-tab"));
+  const query = wake.indexOf("chrome.tabs.query({ active: true, currentWindow: true })", wake.indexOf("#use-tab"));
+  assert.ok(request !== -1 && request < query);
+  const background = await readFile(resolve(src, 'background.js'), 'utf8');
+  const wakeBackground = await readFile(resolve(src, 'wake-background.js'), 'utf8');
+  assert.match(background, /WAKE_PERMISSION_KEY/);
+  assert.match(wakeBackground, /guideNeedsChatGPT/);
+});
+
+test('Wake UI carries the connector and tool warning', async () => {
+  const html = await readFile(resolve(import.meta.dirname, '../src/wake.html'), 'utf8');
+  assert.match(html, /Bind a ChatGPT chat that has no other connectors or tools turned on: whoever can @mention your AI in the room can make it read the room\./);
 });
 
 test('guide paths do not import Wake except for the background side-effect import', async () => {

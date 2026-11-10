@@ -5,6 +5,7 @@ const PUBLIC_KEY = '__GUIDE_PUBLIC_KEY__';
 const FEEDBACK_URL = '__FEEDBACK_URL__';
 const REMOVABLE_ORIGINS_KEY = 'guide-removable-origins';
 const FEEDBACK_PAYLOAD_KEY = 'guide-feedback-payload';
+const WAKE_PERMISSION_KEY = 'wake-chatgpt-permission';
 
 const sessionKey = tabId => `guide-tab-${tabId}`;
 const getSession = async tabId => (await chrome.storage.session.get(sessionKey(tabId)))[sessionKey(tabId)];
@@ -21,11 +22,11 @@ async function releaseGuidePermissions(session, tabId) {
   return serializePermissionUpdate(async () => {
     const stored = await chrome.storage.session.get(null);
     const inUse = new Set(Object.entries(stored).filter(([key]) => key !== sessionKey(tabId)).flatMap(([, value]) => (value?.guide?.allowedSites || []).map(site => `${site}/*`)));
-    const local = await chrome.storage.local.get(REMOVABLE_ORIGINS_KEY);
+    const local = await chrome.storage.local.get([REMOVABLE_ORIGINS_KEY, WAKE_PERMISSION_KEY]);
     const tracked = local[REMOVABLE_ORIGINS_KEY] || [];
-    const origins = tracked.filter(origin => !inUse.has(origin));
+    const origins = tracked.filter(origin => !inUse.has(origin) && !(origin === 'https://chatgpt.com/*' && local[WAKE_PERMISSION_KEY]));
     if (origins.length) await chrome.permissions.remove({ origins });
-    await chrome.storage.local.set({ [REMOVABLE_ORIGINS_KEY]: tracked.filter(origin => inUse.has(origin)) });
+    await chrome.storage.local.set({ [REMOVABLE_ORIGINS_KEY]: tracked.filter(origin => inUse.has(origin) || (origin === 'https://chatgpt.com/*' && local[WAKE_PERMISSION_KEY])) });
   });
 }
 
@@ -38,10 +39,10 @@ async function rememberGuidePermissions(origins) {
 
 async function clearRememberedPermissions() {
   return serializePermissionUpdate(async () => {
-    const local = await chrome.storage.local.get(REMOVABLE_ORIGINS_KEY);
-    const origins = local[REMOVABLE_ORIGINS_KEY] || [];
+    const local = await chrome.storage.local.get([REMOVABLE_ORIGINS_KEY, WAKE_PERMISSION_KEY]);
+    const origins = (local[REMOVABLE_ORIGINS_KEY] || []).filter(origin => !(origin === 'https://chatgpt.com/*' && local[WAKE_PERMISSION_KEY]));
     if (origins.length) await chrome.permissions.remove({ origins });
-    await chrome.storage.local.remove(REMOVABLE_ORIGINS_KEY);
+    await chrome.storage.local.set({ [REMOVABLE_ORIGINS_KEY]: (local[REMOVABLE_ORIGINS_KEY] || []).filter(origin => !origins.includes(origin)) });
   });
 }
 
