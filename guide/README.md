@@ -19,3 +19,7 @@ Keep the Ed25519 private key outside this repository. Run `npm run sign -- guide
 Build the extension, open `chrome://extensions`, turn on Developer mode, choose Load unpacked, and select the `guide/dist` folder. Because the manifest has no fixed key, copy the extension id Chrome assigns to this unpacked install when constructing a start link. Send the person one start link that includes the HTTPS guide address and parameters, for example `chrome-extension://EXTENSION_ID/start.html?guide=https%3A%2F%2Fexample.org%2Fguides%2Fchatgpt-project-rule.json&projectName=Coaching&name=Alex`. Chrome shows the source and task site names before granting access.
 
 This implementation was authored for the community-seed public repository from the behavior of Yeshie's Guide mode, without importing or depending on Yeshie.
+
+## Wake my AI
+
+Wake my AI is a separate, optional feature reached from the start page. It is off by default and requests ChatGPT access only when it is turned on. A wake link may bind one SOMA room to one specific ChatGPT chat. When addressed, it sends only the fixed line “Check the SOMA room and reply to anything addressed to you.” It does not read chat content. The Wake page shows status and a privacy-minimal local log, and has a one-click Turn off button. Guides continue to use their existing guide-only path and permissions.

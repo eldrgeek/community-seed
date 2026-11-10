@@ -1,4 +1,5 @@
 import { assertStepSite, isAllowedStepTransition, isFeedbackPageSender, substitute, validateGuide, verifyGuideBytes } from './guide-core.js';
+import './wake-background.js';
 
 const PUBLIC_KEY = '__GUIDE_PUBLIC_KEY__';
 const FEEDBACK_URL = '__FEEDBACK_URL__';

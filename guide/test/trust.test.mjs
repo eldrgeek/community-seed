@@ -65,17 +65,27 @@ test('refuses parameter placeholders in allowed sites and URLs', () => {
   assert.throws(() => validateGuide({ ...basic, steps: [{ type: 'open', instruction: 'Open.', url: 'https://example.test/{{path}}' }] }), /invalid URL/);
 });
 
-test('built output contains no automation entry points and only the fixed feedback host permission', async () => {
+test('guide code remains free of automation and Wake is a separate optional permission', async () => {
   const dist = resolve(import.meta.dirname, '../dist');
   const names = await readdir(dist);
-  const text = (await Promise.all(names.filter(name => /\.(js|json|html)$/.test(name)).map(name => readFile(resolve(dist, name), 'utf8')))).join('\n');
+  const text = (await Promise.all(names.filter(name => /\.(js|json|html)$/.test(name) && !name.startsWith('wake-') && name !== 'wake.html' && name !== 'background.js').map(name => readFile(resolve(dist, name), 'utf8')))).join('\n');
   for (const forbidden of ['debugger', 'socket.io', 'relay', 'side_panel', 'click(', '.click()', 'dispatchEvent', 'sendKeys', 'executeAutomation', 'skill_run']) {
     assert.equal(text.includes(forbidden), false, `bundle contains forbidden automation marker: ${forbidden}`);
   }
   const manifest = JSON.parse(await readFile(resolve(dist, 'manifest.json'), 'utf8'));
-  assert.deepEqual(manifest.permissions, ['storage', 'scripting']);
+  assert.deepEqual(manifest.permissions, ['storage', 'scripting', 'alarms', 'activeTab']);
   assert.deepEqual(manifest.host_permissions, ['https://vps.mike-wolf.com/*']);
-  assert.deepEqual(manifest.optional_host_permissions, ['https://*/*']);
+  assert.deepEqual(manifest.optional_host_permissions, ['https://*/*', 'https://chatgpt.com/*']);
+});
+
+test('guide paths do not import Wake except for the background side-effect import', async () => {
+  const src = resolve(import.meta.dirname, '../src');
+  const names = await readdir(src);
+  for (const name of names.filter(name => name.endsWith('.js') && !name.startsWith('wake'))) {
+    const source = await readFile(resolve(src, name), 'utf8');
+    const imports = [...source.matchAll(/(?:from\s+|import\s*)['"](\.\/wake-[^'"]+)['"]/g)].map(match => match[1]);
+    assert.deepEqual(imports, name === 'background.js' ? ['./wake-background.js'] : [], `${name} must stay on the guide-only path`);
+  }
 });
 
 test('feedback keeps only signed identifiers and the page origin', () => {
