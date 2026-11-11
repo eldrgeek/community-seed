@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WAKE_SELECTORS, FIXED_WAKE_LINE } from '../src/wake-core.js';
+import { WAKE_SELECTORS, FIXED_WAKE_LINE, LISTEN_WAKE_LINE } from '../src/wake-core.js';
 import { wakeChatGPT } from '../src/wake-inject.js';
 
 const BOUND_URL = 'https://chatgpt.com/c/bound';
@@ -35,29 +35,29 @@ function fixture({ generating = false, text = '', composer = true, location = BO
 
 test('idle chat types exactly the fixed line and clicks send once', async () => {
   const env = fixture();
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'woke', clickedAt: 0 });
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'woke', clickedAt: 0 });
   assert.equal(env.editor.textContent, FIXED_WAKE_LINE); assert.equal(env.clicked, 1);
 });
 
 test('generating waits 30 seconds and reports busy', async () => {
   const env = fixture({ generating: true });
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'busy' }); assert.equal(env.clicked, 0);
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'busy' }); assert.equal(env.clicked, 0);
 });
 
 test('composer text reports busy without typing', async () => {
   const env = fixture({ text: 'person is typing' });
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'busy' });
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'busy' });
   assert.equal(env.editor.textContent, 'person is typing'); assert.equal(env.clicked, 0);
 });
 
 test('missing composer reports not signed in', async () => {
   const env = fixture({ composer: false });
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'not_signed_in' }); assert.equal(env.clicked, 0);
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'not_signed_in' }); assert.equal(env.clicked, 0);
 });
 
 test('a different chat stays untouched before insertion', async () => {
   const env = fixture({ location: 'https://chatgpt.com/c/other' });
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'busy' });
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'busy' });
   assert.equal(env.editor.textContent, ''); assert.equal(env.clicked, 0);
 });
 
@@ -65,7 +65,7 @@ test('navigation after insertion clears exactly our line and does not send', asy
   const env = fixture({ sendEnabled: false });
   let sleeps = 0;
   env.sleep = async ms => { env.setLocation('https://chatgpt.com/c/other'); sleeps += ms; };
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'busy' });
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'busy' });
   assert.equal(env.editor.textContent, ''); assert.equal(env.clicked, 0); assert.ok(sleeps > 0);
 });
 
@@ -77,14 +77,14 @@ test('the bound URL is checked again immediately before Send', async () => {
     if (selector === WAKE_SELECTORS.sendButton && env.editor.textContent === FIXED_WAKE_LINE) env.setLocation('https://chatgpt.com/c/other');
     return result;
   };
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'busy' });
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'busy' });
   assert.equal(env.editor.textContent, ''); assert.equal(env.clicked, 0);
 });
 
 test('clearing never removes text changed by the person', async () => {
   const env = fixture({ sendEnabled: false });
   env.sleep = async () => { env.editor.textContent = 'person took over'; };
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'busy' });
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'busy' });
   assert.equal(env.editor.textContent, 'person took over');
 });
 
@@ -93,6 +93,16 @@ test('an emptied composer plus stop button confirms the send', async () => {
   let sent = false;
   const original = env.document.querySelector;
   env.document.querySelector = selector => selector === WAKE_SELECTORS.stopButton && env.clicked ? (sent = true, {}) : original(selector);
-  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, env), { outcome: 'woke', clickedAt: 0 });
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'addressed', env), { outcome: 'woke', clickedAt: 0 });
   assert.equal(sent, true);
+});
+
+test('a listen wake types only the fixed listen line, never server text', async () => {
+  const env = fixture();
+  delete env.fixedLine;
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'listen', env), { outcome: 'woke', clickedAt: 0 });
+  assert.equal(env.editor.textContent, LISTEN_WAKE_LINE);
+  const env2 = fixture(); delete env2.fixedLine;
+  await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'anything else', env2);
+  assert.equal(env2.editor.textContent, FIXED_WAKE_LINE);
 });

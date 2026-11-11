@@ -1,8 +1,11 @@
-export async function wakeChatGPT(selectors, boundUrl, environment = {}) {
+export async function wakeChatGPT(selectors, boundUrl, kind = 'addressed', environment = {}) {
   const doc = environment.document || document;
   const sleep = environment.sleep || (ms => new Promise(resolve => setTimeout(resolve, ms)));
   const now = environment.now || Date.now;
-  const fixedLine = environment.fixedLine || 'Check the SOMA room and reply to anything addressed to you.';
+  // Only these two fixed lines can ever be typed; the server picks which by frame type, never the words.
+  const fixedLine = environment.fixedLine || (kind === 'listen'
+    ? 'Listen to the SOMA room: read its brief. If you have something useful to add, call raise_hand with a short reason; otherwise do nothing.'
+    : 'Check the SOMA room and reply to anything addressed to you.');
   const pageUrl = () => {
     const here = environment.location || location;
     return `${here.origin}${here.pathname}`;

@@ -2,6 +2,7 @@ export const WAKE_HOSTS = Object.freeze(['vps.mike-wolf.com']);
 export const WAKE_PATH_PREFIXES = Object.freeze(['/soma-rooms/wake/', '/soma-rooms-staging/wake/']);
 export const CHATGPT_ORIGIN = 'https://chatgpt.com/*';
 export const FIXED_WAKE_LINE = 'Check the SOMA room and reply to anything addressed to you.';
+export const LISTEN_WAKE_LINE = 'Listen to the SOMA room: read its brief. If you have something useful to add, call raise_hand with a short reason; otherwise do nothing.';
 export const WAKE_COALESCE_MS = 20_000;
 export const WAKE_DAILY_CAP = 100;
 
@@ -52,6 +53,10 @@ export function validateServerFrame(value) {
     if (typeof value.seq === 'string' && !/^\d+$/.test(value.seq)) return null;
     return { type: 'addressed', room: value.room, seq: value.seq, at: value.at };
   }
+  if (value.type === 'listen') {
+    if (typeof value.room !== 'string' || !Number.isFinite(value.at) || Object.keys(value).length !== 3) return null;
+    return { type: 'listen', room: value.room, at: value.at };
+  }
   return null;
 }
 
@@ -64,7 +69,8 @@ export function receiveAddressed(state, frame, now) {
   const today = dayKey(now);
   const current = state.day === today ? state : { day: today, count: 0, lastWakeAt: state.lastWakeAt || 0, pending: null };
   if (current.count >= WAKE_DAILY_CAP) return { state: current, action: 'cap' };
-  const pending = { seq: frame.seq, at: frame.at };
+  if (frame.type === 'listen' && current.pending && current.pending.type !== 'listen') return { state: current, action: 'drop' };
+  const pending = { type: frame.type === 'listen' ? 'listen' : 'addressed', seq: frame.seq, at: frame.at };
   const elapsed = now - (current.lastWakeAt || 0);
   if (!current.lastWakeAt || elapsed >= WAKE_COALESCE_MS) {
     return { state: { ...current, count: current.count + 1, lastWakeAt: now, pending: null }, action: 'wake', frame: pending, delay: 0 };

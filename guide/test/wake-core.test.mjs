@@ -66,3 +66,14 @@ test('server frames are strictly validated', () => {
   assert.equal(validateServerFrame({ type: 'addressed', room: 'r', seq: 7, at: NaN }), null);
   for (const frame of [null, { type: 'ping', extra: true }, { type: 'ready' }, { type: 'addressed', seq: 1, at: 2 }, { type: 'addressed', room: 'r', seq: {}, at: 2 }, { type: 'unknown' }]) assert.equal(validateServerFrame(frame), null);
 });
+
+test('listen frames validate strictly and never displace a waiting mention', async () => {
+  const { validateServerFrame, receiveAddressed } = await import('../src/wake-core.js');
+  assert.deepEqual(validateServerFrame({ type: 'listen', room: 'r1', at: 5 }), { type: 'listen', room: 'r1', at: 5 });
+  assert.equal(validateServerFrame({ type: 'listen', room: 'r1', at: 5, text: 'hi' }), null);
+  assert.equal(validateServerFrame({ type: 'listen', room: 'r1', at: '5' }), null);
+  const s1 = receiveAddressed({}, { type: 'addressed', seq: 3, at: 1 }, 1000).state;
+  const waiting = receiveAddressed(s1, { type: 'addressed', seq: 4, at: 2 }, 2000);
+  assert.equal(waiting.action, 'wait');
+  assert.equal(receiveAddressed(waiting.state, { type: 'listen', at: 3 }, 3000).action, 'drop');
+});
