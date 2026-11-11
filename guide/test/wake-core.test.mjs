@@ -77,3 +77,13 @@ test('listen frames validate strictly and never displace a waiting mention', asy
   assert.equal(waiting.action, 'wait');
   assert.equal(receiveAddressed(waiting.state, { type: 'listen', at: 3 }, 3000).action, 'drop');
 });
+
+test('listen and recheck use their own 30-a-day allowance and never count against mentions', async () => {
+  const { receiveAddressed, QUIET_DAILY_CAP, WAKE_DAILY_CAP } = await import('../src/wake-core.js');
+  let state = {}; let t = Date.parse('2026-11-11T10:00:00');
+  for (let i = 0; i < QUIET_DAILY_CAP; i++) { t += 60_000; state = receiveAddressed(state, { type: 'listen', at: t }, t).state; }
+  assert.equal(state.quietCount, QUIET_DAILY_CAP); assert.equal(state.count, 0);
+  t += 60_000; assert.equal(receiveAddressed(state, { type: 'recheck', at: t }, t).action, 'cap');
+  assert.equal(receiveAddressed(state, { type: 'addressed', seq: 9, at: t }, t).action, 'wake');
+  assert.ok(WAKE_DAILY_CAP > 0);
+});
