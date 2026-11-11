@@ -87,3 +87,14 @@ test('listen and recheck use their own 30-a-day allowance and never count agains
   assert.equal(receiveAddressed(state, { type: 'addressed', seq: 9, at: t }, t).action, 'wake');
   assert.ok(WAKE_DAILY_CAP > 0);
 });
+
+test('prepare has its own 20-a-day allowance and never displaces or starves a mention', async () => {
+  const { receiveAddressed, PREPARE_DAILY_CAP } = await import('../src/wake-core.js');
+  let state = {}; let t = Date.parse('2026-11-11T10:00:00');
+  for (let i = 0; i < PREPARE_DAILY_CAP; i++) { t += 60_000; state = receiveAddressed(state, { type: 'prepare', at: t }, t).state; }
+  assert.equal(state.prepareCount, PREPARE_DAILY_CAP); assert.equal(state.count, 0);
+  t += 60_000; assert.equal(receiveAddressed(state, { type: 'prepare', at: t }, t).action, 'cap');
+  const woke = receiveAddressed(state, { type: 'addressed', seq: 7, at: t }, t); assert.equal(woke.action, 'wake');
+  const waiting = receiveAddressed(woke.state, { type: 'addressed', seq: 8, at: t + 1000 }, t + 1000); assert.equal(waiting.action, 'wait');
+  assert.equal(receiveAddressed({ ...waiting.state, prepareCount: 0 }, { type: 'prepare', at: t + 2000 }, t + 2000).action, 'drop');
+});

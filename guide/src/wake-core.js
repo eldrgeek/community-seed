@@ -7,6 +7,7 @@ export const PREPARE_WAKE_LINE = 'Someone in the SOMA room is writing to you now
 export const RECHECK_WAKE_LINE = 'Your held comment in the SOMA room may be out of date: read the room, then keep it, call update_hand with a new comment, or call lower_hand.';
 export const WAKE_COALESCE_MS = 20_000;
 export const WAKE_DAILY_CAP = 100;
+export const PREPARE_DAILY_CAP = 20; // get-ready wakes have their own small allowance, so they can never use up mentions
 export const QUIET_DAILY_CAP = 30; // listen and recheck wakes have their own allowance, so mentions are never starved
 
 // ChatGPT changes its markup; each entry lists the old form and the new one (seen 2026-11-11).
@@ -68,26 +69,29 @@ export function dayKey(time) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-const bump = (s, quiet) => quiet ? { ...s, quietCount: (s.quietCount || 0) + 1 } : { ...s, count: s.count + 1 };
+const bump = (s, kind) => kind === 'quiet' ? { ...s, quietCount: (s.quietCount || 0) + 1 } : kind === 'prepare' ? { ...s, prepareCount: (s.prepareCount || 0) + 1 } : { ...s, count: s.count + 1 };
+const kindOf = type => type === 'listen' || type === 'recheck' ? 'quiet' : type === 'prepare' ? 'prepare' : 'addressed';
+const overCap = (s, kind) => kind === 'quiet' ? (s.quietCount || 0) >= QUIET_DAILY_CAP : kind === 'prepare' ? (s.prepareCount || 0) >= PREPARE_DAILY_CAP : s.count >= WAKE_DAILY_CAP;
 
 export function receiveAddressed(state, frame, now) {
   const today = dayKey(now);
-  const current = state.day === today ? state : { day: today, count: 0, quietCount: 0, lastWakeAt: state.lastWakeAt || 0, pending: null };
-  const quiet = frame.type === 'listen' || frame.type === 'recheck';
-  if (quiet ? (current.quietCount || 0) >= QUIET_DAILY_CAP : current.count >= WAKE_DAILY_CAP) return { state: current, action: 'cap' };
-  if (quiet && current.pending && current.pending.type === 'addressed') return { state: current, action: 'drop' };
+  const current = state.day === today ? state : { day: today, count: 0, quietCount: 0, prepareCount: 0, lastWakeAt: state.lastWakeAt || 0, pending: null };
+  const kind = kindOf(frame.type), quiet = kind === 'quiet';
+  if (overCap(current, kind)) return { state: current, action: 'cap' };
+  // Nothing displaces a waiting mention.
+  if (kind !== 'addressed' && current.pending && current.pending.type === 'addressed') return { state: current, action: 'drop' };
   const pending = { type: quiet ? frame.type : frame.type === 'prepare' ? 'prepare' : 'addressed', seq: frame.seq, at: frame.at };
   const elapsed = now - (current.lastWakeAt || 0);
   if (!current.lastWakeAt || elapsed >= WAKE_COALESCE_MS) {
-    return { state: { ...bump(current, quiet), lastWakeAt: now, pending: null }, action: 'wake', frame: pending, delay: 0 };
+    return { state: { ...bump(current, kind), lastWakeAt: now, pending: null }, action: 'wake', frame: pending, delay: 0 };
   }
   return { state: { ...current, pending }, action: 'wait', delay: WAKE_COALESCE_MS - elapsed };
 }
 
 export function takePending(state, now) {
   if (!state.pending) return { state, action: 'none' };
-  const quiet = state.pending.type === 'listen' || state.pending.type === 'recheck';
-  if (quiet ? (state.quietCount || 0) >= QUIET_DAILY_CAP : state.count >= WAKE_DAILY_CAP) return { state: { ...state, pending: null }, action: 'cap' };
+  const kind = kindOf(state.pending.type);
+  if (overCap(state, kind)) return { state: { ...state, pending: null }, action: 'cap' };
   const frame = state.pending;
-  return { state: { ...bump(state, quiet), lastWakeAt: now, pending: null }, action: 'wake', frame };
+  return { state: { ...bump(state, kind), lastWakeAt: now, pending: null }, action: 'wake', frame };
 }
