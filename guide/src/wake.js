@@ -45,10 +45,17 @@ document.querySelector('#turn-off').addEventListener('click', async () => {
 document.querySelector('#use-tab').addEventListener('click', async () => {
   const granted = await chrome.permissions.request({ origins: [CHATGPT_ORIGIN] });
   if (!granted) { status.textContent = 'ChatGPT access was not granted.'; return; }
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  // This page may itself be the active tab, so take the ChatGPT chat tab used most recently.
+  const tabs = await chrome.tabs.query({ url: CHATGPT_ORIGIN });
+  const chats = tabs.filter(t => { try { validateChatUrl(t.url || ''); return true; } catch { return false; } });
+  const tab = chats.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
   try { chatUrl.value = validateChatUrl(tab?.url || ''); status.textContent = 'Chat URL filled in. Wake my AI is still off.'; }
   catch { status.textContent = 'The active tab is not a specific ChatGPT chat.'; }
 });
 
 chrome.storage.onChanged.addListener((_changes, area) => { if (area === 'local') render(); });
-render();
+render().then(() => {
+  // A chat address (not a secret) may arrive in the hash: wake.html#chat=<url>. The wake link never does.
+  const hashed = new URLSearchParams(location.hash.slice(1)).get('chat');
+  if (hashed && !chatUrl.value) { try { chatUrl.value = validateChatUrl(hashed); } catch {} }
+});

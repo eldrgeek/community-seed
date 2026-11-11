@@ -82,7 +82,7 @@ test('Wake requests ChatGPT before querying the active tab and permission cleanu
   const src = resolve(import.meta.dirname, '../src');
   const wake = await readFile(resolve(src, 'wake.js'), 'utf8');
   const request = wake.indexOf("chrome.permissions.request({ origins: [CHATGPT_ORIGIN] })", wake.indexOf("#use-tab"));
-  const query = wake.indexOf("chrome.tabs.query({ active: true, currentWindow: true })", wake.indexOf("#use-tab"));
+  const query = wake.indexOf("chrome.tabs.query({ url: CHATGPT_ORIGIN })", wake.indexOf("#use-tab"));
   assert.ok(request !== -1 && request < query);
   const background = await readFile(resolve(src, 'background.js'), 'utf8');
   const wakeBackground = await readFile(resolve(src, 'wake-background.js'), 'utf8');
