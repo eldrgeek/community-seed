@@ -5,10 +5,11 @@ export const FIXED_WAKE_LINE = 'Check the SOMA room and reply to anything addres
 export const WAKE_COALESCE_MS = 20_000;
 export const WAKE_DAILY_CAP = 100;
 
+// ChatGPT changes its markup; each entry lists the old form and the new one (seen 2026-11-11).
 export const WAKE_SELECTORS = Object.freeze({
-  stopButton: '[data-testid="stop-button"]',
-  composer: '#prompt-textarea',
-  sendButton: '[data-testid="send-button"]',
+  stopButton: '[data-testid="stop-button"], button[aria-label="Stop"], button[aria-label="Stop streaming"]',
+  composer: '#prompt-textarea, [contenteditable="true"][aria-label="Ask ChatGPT"]',
+  sendButton: '[data-testid="send-button"], button[aria-label="Send"], button[aria-label="Send prompt"]',
   userTurn: '[data-message-author-role="user"]',
 });
 

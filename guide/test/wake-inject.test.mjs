@@ -17,7 +17,11 @@ function fixture({ generating = false, text = '', composer = true, location = BO
       if (selector === WAKE_SELECTORS.sendButton) return send;
       return null;
     },
-    querySelectorAll(selector) { return selector === WAKE_SELECTORS.userTurn ? turns : []; },
+    querySelectorAll(selector) {
+      if (selector === WAKE_SELECTORS.userTurn) return turns;
+      const one = this.querySelector(selector);
+      return one ? [one] : [];
+    },
     execCommand(command, _ui, value) {
       if (command === 'insertText') { editor.textContent = value; return true; }
       if (command === 'selectAll') { selected = true; return true; }

@@ -12,14 +12,16 @@ export async function wakeChatGPT(selectors, boundUrl, environment = {}) {
     composer.focus();
     try { doc.execCommand('selectAll', false); doc.execCommand('delete', false); } catch {}
   };
+  // Only visible elements count: ChatGPT keeps hidden copies of the composer and buttons.
+  const pick = sel => [...doc.querySelectorAll(sel)].find(e => e.offsetParent !== null || e.getClientRects?.().length || environment.document) || null;
   const started = now();
-  let composer = doc.querySelector(selectors.composer);
+  let composer = pick(selectors.composer);
   if (!composer) return { outcome: 'not_signed_in' };
 
-  while (doc.querySelector(selectors.stopButton)) {
+  while (pick(selectors.stopButton)) {
     if (now() - started >= 30_000) return { outcome: 'busy' };
     await sleep(250);
-    composer = doc.querySelector(selectors.composer);
+    composer = pick(selectors.composer);
     if (!composer) return { outcome: 'not_signed_in' };
   }
   if ((composer.textContent || '').trim()) return { outcome: 'busy' };
@@ -36,7 +38,7 @@ export async function wakeChatGPT(selectors, boundUrl, environment = {}) {
   // ChatGPT enables Send a moment after the text lands; wait for it, and never leave our line behind.
   let send = null;
   for (let waited = 0; waited <= 2_000; waited += 100) {
-    send = doc.querySelector(selectors.sendButton);
+    send = pick(selectors.sendButton);
     if (send && !send.disabled && send.getAttribute?.('aria-disabled') !== 'true') break;
     send = null;
     await sleep(100);
@@ -50,7 +52,7 @@ export async function wakeChatGPT(selectors, boundUrl, environment = {}) {
   send.click();
   for (let waited = 0; waited <= 8_000; waited += 100) {
     if (doc.querySelectorAll(selectors.userTurn).length > turnsBefore) return { outcome: 'woke', clickedAt };
-    if (!(composer.textContent || '').trim() && doc.querySelector(selectors.stopButton)) return { outcome: 'woke', clickedAt };
+    if (!(composer.textContent || '').trim() && pick(selectors.stopButton)) return { outcome: 'woke', clickedAt };
     await sleep(100);
   }
   return { outcome: 'busy' };
