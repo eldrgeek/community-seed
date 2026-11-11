@@ -5,6 +5,8 @@ export async function wakeChatGPT(selectors, boundUrl, kind = 'addressed', envir
   // Only these two fixed lines can ever be typed; the server picks which by frame type, never the words.
   const fixedLine = environment.fixedLine || (kind === 'listen'
     ? 'Listen to the SOMA room: read its brief. If you have something useful to add, call raise_hand with a short reason and your comment; otherwise do nothing.'
+    : kind === 'prepare'
+      ? 'Someone in the SOMA room is writing to you now: call wait_for_mention and answer it when it arrives. If nothing comes, do nothing.'
     : kind === 'recheck'
       ? 'Your held comment in the SOMA room may be out of date: read the room, then keep it, call update_hand with a new comment, or call lower_hand.'
       : 'Check the SOMA room and reply to anything addressed to you.');

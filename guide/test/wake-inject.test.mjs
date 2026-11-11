@@ -113,3 +113,12 @@ test('a recheck wake types only the fixed recheck line', async () => {
   assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'recheck', env), { outcome: 'woke', clickedAt: 0 });
   assert.equal(env.editor.textContent, RECHECK_WAKE_LINE);
 });
+
+test('a prepare wake types only the fixed get-ready line', async () => {
+  const { PREPARE_WAKE_LINE, validateServerFrame } = await import('../src/wake-core.js');
+  assert.deepEqual(validateServerFrame({ type: 'prepare', room: 'r', at: 1 }), { type: 'prepare', room: 'r', at: 1 });
+  assert.equal(validateServerFrame({ type: 'prepare', room: 'r', at: 1, text: 'x' }), null);
+  const env = fixture(); delete env.fixedLine;
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'prepare', env), { outcome: 'woke', clickedAt: 0 });
+  assert.equal(env.editor.textContent, PREPARE_WAKE_LINE);
+});

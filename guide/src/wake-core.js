@@ -3,6 +3,7 @@ export const WAKE_PATH_PREFIXES = Object.freeze(['/soma-rooms/wake/', '/soma-roo
 export const CHATGPT_ORIGIN = 'https://chatgpt.com/*';
 export const FIXED_WAKE_LINE = 'Check the SOMA room and reply to anything addressed to you.';
 export const LISTEN_WAKE_LINE = 'Listen to the SOMA room: read its brief. If you have something useful to add, call raise_hand with a short reason and your comment; otherwise do nothing.';
+export const PREPARE_WAKE_LINE = 'Someone in the SOMA room is writing to you now: call wait_for_mention and answer it when it arrives. If nothing comes, do nothing.';
 export const RECHECK_WAKE_LINE = 'Your held comment in the SOMA room may be out of date: read the room, then keep it, call update_hand with a new comment, or call lower_hand.';
 export const WAKE_COALESCE_MS = 20_000;
 export const WAKE_DAILY_CAP = 100;
@@ -55,7 +56,7 @@ export function validateServerFrame(value) {
     if (typeof value.seq === 'string' && !/^\d+$/.test(value.seq)) return null;
     return { type: 'addressed', room: value.room, seq: value.seq, at: value.at };
   }
-  if (value.type === 'listen' || value.type === 'recheck') {
+  if (value.type === 'listen' || value.type === 'recheck' || value.type === 'prepare') {
     if (typeof value.room !== 'string' || !Number.isFinite(value.at) || Object.keys(value).length !== 3) return null;
     return { type: value.type, room: value.room, at: value.at };
   }
@@ -75,7 +76,7 @@ export function receiveAddressed(state, frame, now) {
   const quiet = frame.type === 'listen' || frame.type === 'recheck';
   if (quiet ? (current.quietCount || 0) >= QUIET_DAILY_CAP : current.count >= WAKE_DAILY_CAP) return { state: current, action: 'cap' };
   if (quiet && current.pending && current.pending.type === 'addressed') return { state: current, action: 'drop' };
-  const pending = { type: quiet ? frame.type : 'addressed', seq: frame.seq, at: frame.at };
+  const pending = { type: quiet ? frame.type : frame.type === 'prepare' ? 'prepare' : 'addressed', seq: frame.seq, at: frame.at };
   const elapsed = now - (current.lastWakeAt || 0);
   if (!current.lastWakeAt || elapsed >= WAKE_COALESCE_MS) {
     return { state: { ...bump(current, quiet), lastWakeAt: now, pending: null }, action: 'wake', frame: pending, delay: 0 };
