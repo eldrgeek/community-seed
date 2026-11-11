@@ -83,13 +83,13 @@ async function performWake(frame) {
   if (tab && loaded) {
     try {
       if (!(await waitForComposer(tab.id))) throw new Error('not_signed_in');
-      const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: wakeChatGPT, args: [WAKE_SELECTORS, chatPageUrl(chatUrl), frame.type === 'listen' ? 'listen' : 'addressed'] });
+      const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: wakeChatGPT, args: [WAKE_SELECTORS, chatPageUrl(chatUrl), frame.type === 'listen' || frame.type === 'recheck' ? frame.type : 'addressed'] });
       outcome = result?.outcome || 'busy';
       if (outcome === 'woke') latencyMs = result.clickedAt - frame.at;
     } catch (error) { outcome = error.message === 'not_signed_in' ? 'not_signed_in' : 'tab_closed'; }
   }
   // A listen suggestion has no message behind it, so nothing is reported back for it.
-  if (frame.type !== 'listen') send(outcome === 'woke' ? wokeFrame(frame.seq) : awayFrame(frame.seq, outcome));
+  if (frame.type !== 'listen' && frame.type !== 'recheck') send(outcome === 'woke' ? wokeFrame(frame.seq) : awayFrame(frame.seq, outcome));
   await appendLog(frame.seq, outcome, latencyMs);
   await setStatus(socket?.readyState === WebSocket.OPEN ? 'connected' : 'reconnecting');
 }
@@ -110,7 +110,7 @@ async function addressed(frame) {
   await saveLimiter();
   if (next.action === 'wake') await performWake(next.frame);
   else if (next.action === 'wait') schedulePending(next.delay);
-  else if (next.action === 'cap' && frame.type !== 'listen') send({ type: 'away', seq: frame.seq, why: 'busy' });
+  else if (next.action === 'cap' && frame.type !== 'listen' && frame.type !== 'recheck') send({ type: 'away', seq: frame.seq, why: 'busy' });
 }
 
 function queueAddressed(frame) {
@@ -135,7 +135,7 @@ async function connect() {
   socket.onmessage = event => {
     let parsed; try { parsed = JSON.parse(event.data); } catch { return; }
     const frame = validateServerFrame(parsed);
-    if (frame?.type === 'addressed' || frame?.type === 'listen') queueAddressed(frame);
+    if (frame?.type === 'addressed' || frame?.type === 'listen' || frame?.type === 'recheck') queueAddressed(frame);
   };
   socket.onclose = async event => {
     if (myGeneration !== generation) return;

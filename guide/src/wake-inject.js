@@ -4,8 +4,10 @@ export async function wakeChatGPT(selectors, boundUrl, kind = 'addressed', envir
   const now = environment.now || Date.now;
   // Only these two fixed lines can ever be typed; the server picks which by frame type, never the words.
   const fixedLine = environment.fixedLine || (kind === 'listen'
-    ? 'Listen to the SOMA room: read its brief. If you have something useful to add, call raise_hand with a short reason; otherwise do nothing.'
-    : 'Check the SOMA room and reply to anything addressed to you.');
+    ? 'Listen to the SOMA room: read its brief. If you have something useful to add, call raise_hand with a short reason and your comment; otherwise do nothing.'
+    : kind === 'recheck'
+      ? 'Your held comment in the SOMA room may be out of date: read the room, then keep it, call update_hand with a new comment, or call lower_hand.'
+      : 'Check the SOMA room and reply to anything addressed to you.');
   const pageUrl = () => {
     const here = environment.location || location;
     return `${here.origin}${here.pathname}`;

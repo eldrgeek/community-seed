@@ -106,3 +106,10 @@ test('a listen wake types only the fixed listen line, never server text', async 
   await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'anything else', env2);
   assert.equal(env2.editor.textContent, FIXED_WAKE_LINE);
 });
+
+test('a recheck wake types only the fixed recheck line', async () => {
+  const { RECHECK_WAKE_LINE } = await import('../src/wake-core.js');
+  const env = fixture(); delete env.fixedLine;
+  assert.deepEqual(await wakeChatGPT(WAKE_SELECTORS, BOUND_URL, 'recheck', env), { outcome: 'woke', clickedAt: 0 });
+  assert.equal(env.editor.textContent, RECHECK_WAKE_LINE);
+});
