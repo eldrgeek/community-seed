@@ -98,3 +98,12 @@ test('prepare has its own 20-a-day allowance and never displaces or starves a me
   const waiting = receiveAddressed(woke.state, { type: 'addressed', seq: 8, at: t + 1000 }, t + 1000); assert.equal(waiting.action, 'wait');
   assert.equal(receiveAddressed({ ...waiting.state, prepareCount: 0 }, { type: 'prepare', at: t + 2000 }, t + 2000).action, 'drop');
 });
+
+test('a mention right after a get-ready wake is woken at once', async () => {
+  const { receiveAddressed } = await import('../src/wake-core.js');
+  const t = Date.parse('2026-11-11T10:00:00');
+  const prep = receiveAddressed({}, { type: 'prepare', at: t }, t); assert.equal(prep.action, 'wake');
+  const ment = receiveAddressed(prep.state, { type: 'addressed', seq: 4, at: t + 3000 }, t + 3000);
+  assert.equal(ment.action, 'wake'); assert.equal(ment.delay, 0);
+  assert.equal(receiveAddressed(ment.state, { type: 'prepare', at: t + 5000 }, t + 5000).action, 'drop');
+});

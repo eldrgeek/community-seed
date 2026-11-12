@@ -75,12 +75,17 @@ const overCap = (s, kind) => kind === 'quiet' ? (s.quietCount || 0) >= QUIET_DAI
 
 export function receiveAddressed(state, frame, now) {
   const today = dayKey(now);
-  const current = state.day === today ? state : { day: today, count: 0, quietCount: 0, prepareCount: 0, lastWakeAt: state.lastWakeAt || 0, pending: null };
+  const current = state.day === today ? state : { day: today, count: 0, quietCount: 0, prepareCount: 0, lastWakeAt: state.lastWakeAt || 0, lastPrepareAt: state.lastPrepareAt || 0, pending: null };
   const kind = kindOf(frame.type), quiet = kind === 'quiet';
   if (overCap(current, kind)) return { state: current, action: 'cap' };
   // Nothing displaces a waiting mention.
   if (kind !== 'addressed' && current.pending && current.pending.type === 'addressed') return { state: current, action: 'drop' };
-  const pending = { type: quiet ? frame.type : frame.type === 'prepare' ? 'prepare' : 'addressed', seq: frame.seq, at: frame.at };
+  // A get-ready (prepare) wake keeps its own clock: it never waits behind, or delays, a mention.
+  if (kind === 'prepare') {
+    if (now - (current.lastPrepareAt || 0) < WAKE_COALESCE_MS) return { state: current, action: 'drop' };
+    return { state: { ...bump(current, kind), lastPrepareAt: now }, action: 'wake', frame: { type: 'prepare', at: frame.at }, delay: 0 };
+  }
+  const pending = { type: quiet ? frame.type : 'addressed', seq: frame.seq, at: frame.at };
   const elapsed = now - (current.lastWakeAt || 0);
   if (!current.lastWakeAt || elapsed >= WAKE_COALESCE_MS) {
     return { state: { ...bump(current, kind), lastWakeAt: now, pending: null }, action: 'wake', frame: pending, delay: 0 };
