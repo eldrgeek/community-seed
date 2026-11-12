@@ -36,6 +36,13 @@ async function appendLog(seq, outcome, latencyMs) {
   await chrome.storage.local.set({ [LOG_KEY]: log, [STATUS_KEY]: { ...((await chrome.storage.local.get(STATUS_KEY))[STATUS_KEY] || {}), lastWakeTime: entry.time, wakesToday: limiter.count } });
 }
 
+// Connection changes go in the same log, so a dropped connection shows up next to the wakes it affected.
+async function logConnection(outcome) {
+  const stored = await chrome.storage.local.get(LOG_KEY);
+  const log = [...(stored[LOG_KEY] || []), { time: Date.now(), seq: null, outcome }].slice(-100);
+  await chrome.storage.local.set({ [LOG_KEY]: log });
+}
+
 async function waitForTab(tabId) {
   try { if ((await chrome.tabs.get(tabId)).status === 'complete') return true; } catch { return false; }
   return new Promise(resolve => {
@@ -130,8 +137,8 @@ async function connect() {
   try { wakeLink = validateWakeLink(config.wakeLink); } catch { await disable('Invalid saved wake link.'); return; }
   const myGeneration = ++generation;
   await setStatus('reconnecting');
-  try { socket = new WebSocket(wakeLink); } catch { scheduleReconnect(myGeneration); return; }
-  socket.onopen = async () => { if (myGeneration !== generation) return; backoff = 1_000; await setStatus('connected'); };
+  try { socket = new WebSocket(wakeLink); } catch { await logConnection('could not connect'); scheduleReconnect(myGeneration); return; }
+  socket.onopen = async () => { if (myGeneration !== generation) return; backoff = 1_000; await setStatus('connected'); await logConnection('connected'); };
   socket.onmessage = event => {
     let parsed; try { parsed = JSON.parse(event.data); } catch { return; }
     const frame = validateServerFrame(parsed);
@@ -140,6 +147,7 @@ async function connect() {
   socket.onclose = async event => {
     if (myGeneration !== generation) return;
     socket = null;
+    await logConnection(`connection closed (${event.code}${event.reason ? ': ' + String(event.reason).slice(0, 40) : ''})`);
     if (event.code === 4401) { await disable('The wake link is no longer valid.'); return; }
     if ((await settings()).enabled) { await setStatus('reconnecting'); scheduleReconnect(myGeneration); }
   };

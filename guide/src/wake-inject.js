@@ -9,7 +9,7 @@ export async function wakeChatGPT(selectors, boundUrl, kind = 'addressed', envir
       ? 'Someone in the SOMA room is writing to you now: call wait_for_mention and answer it when it arrives. If nothing comes, do nothing.'
     : kind === 'recheck'
       ? 'Your held comment in the SOMA room may be out of date: read the room, then keep it, call update_hand with a new comment, or call lower_hand.'
-      : 'Check the SOMA room and reply to anything addressed to you.');
+      : 'Check the SOMA room and answer every message addressed to you, oldest first, each with post and reply_to.');
   const pageUrl = () => {
     const here = environment.location || location;
     return `${here.origin}${here.pathname}`;

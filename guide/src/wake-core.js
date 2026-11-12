@@ -1,7 +1,7 @@
 export const WAKE_HOSTS = Object.freeze(['vps.mike-wolf.com']);
 export const WAKE_PATH_PREFIXES = Object.freeze(['/soma-rooms/wake/', '/soma-rooms-staging/wake/']);
 export const CHATGPT_ORIGIN = 'https://chatgpt.com/*';
-export const FIXED_WAKE_LINE = 'Check the SOMA room and reply to anything addressed to you.';
+export const FIXED_WAKE_LINE = 'Check the SOMA room and answer every message addressed to you, oldest first, each with post and reply_to.';
 export const LISTEN_WAKE_LINE = 'Listen to the SOMA room: read its brief. If you have something useful to add, call raise_hand with a short reason and your comment; otherwise do nothing.';
 export const PREPARE_WAKE_LINE = 'Someone in the SOMA room is writing to you now: call wait_for_mention and answer it when it arrives. If nothing comes, do nothing.';
 export const RECHECK_WAKE_LINE = 'Your held comment in the SOMA room may be out of date: read the room, then keep it, call update_hand with a new comment, or call lower_hand.';

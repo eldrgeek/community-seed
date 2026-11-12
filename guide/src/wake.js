@@ -20,7 +20,7 @@ async function render() {
   document.querySelector('#wakes-today').textContent = String(current.wakesToday || 0);
   document.querySelector('#log').replaceChildren(...(stored[LOG_KEY] || []).slice().reverse().map(entry => {
     const item = document.createElement('li');
-    item.textContent = `${new Date(entry.time).toLocaleString()} · seq ${entry.seq} · ${entry.outcome}${Number.isFinite(entry.latencyMs) ? ` · ${entry.latencyMs} ms` : ''}`;
+    item.textContent = `${new Date(entry.time).toLocaleString()}${entry.seq == null ? '' : ` · seq ${entry.seq}`} · ${entry.outcome}${Number.isFinite(entry.latencyMs) ? ` · ${entry.latencyMs} ms` : ''}`;
     return item;
   }));
 }
